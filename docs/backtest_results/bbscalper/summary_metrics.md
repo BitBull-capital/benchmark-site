@@ -1,54 +1,56 @@
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
 ┃ Metric                        ┃ Value                           ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ Backtesting from              │ 2025-04-03 14:00:00             │
-│ Backtesting to                │ 2026-02-15 20:00:00             │
+│ Backtesting from              │ 2024-01-03 02:00:00             │
+│ Backtesting to                │ 2025-01-01 00:00:00             │
 │ Trading Mode                  │ Isolated Futures                │
-│ Max open trades               │ 1                               │
+│ Max open trades               │ 7                               │
 │                               │                                 │
-│ Total/Daily Avg Trades        │ 55 / 0.17                       │
-│ Starting balance              │ 10000 USDT                      │
-│ Final balance                 │ 9035.915 USDT                   │
-│ Absolute profit               │ -964.085 USDT                   │
-│ Total profit %                │ -9.64%                          │
-│ CAGR %                        │ -10.98%                         │
-│ Sortino                       │ -6.32                           │
-│ Sharpe                        │ -0.36                           │
-│ Calmar                        │ -4.22                           │
-│ SQN                           │ -0.80                           │
-│ Profit factor                 │ 0.80                            │
-│ Expectancy (Ratio)            │ -17.53 (-0.08)                  │
-│ Avg. daily profit             │ -3.032 USDT                     │
-│ Avg. stake amount             │ 9749.836 USDT                   │
-│ Total trade volume            │ 1075304.166 USDT                │
+│ Total/Daily Avg Trades        │ 1015 / 2.8                      │
+│ Starting balance              │ 1000 USDT                       │
+│ Final balance                 │ 993.368 USDT                    │
+│ Absolute profit               │ -6.632 USDT                     │
+│ Total profit %                │ -0.66%                          │
+│ CAGR %                        │ -0.67%                          │
+│ Sortino                       │ -0.28                           │
+│ Sharpe                        │ -0.06                           │
+│ Calmar                        │ -0.14                           │
+│ SQN                           │ -0.03                           │
+│ Profit factor                 │ 1.00                            │
+│ Expectancy (Ratio)            │ -0.01 (-0.00)                   │
+│ Avg. daily profit %           │ -0.00%                          │
+│ Avg. stake amount             │ 86.175 USDT                     │
+│ Total trade volume            │ 175145.086 USDT                 │
 │                               │                                 │
-│ Long / Short trades           │ 31 / 24                         │
-│ Long / Short profit %         │ 4.56% / -14.20%                 │
-│ Long / Short profit USDT      │ 456.234 / -1420.319             │
+│ Long / Short                  │ 547 / 468                       │
+│ Total profit Long %           │ 1.17%                           │
+│ Total profit Short %          │ -1.83%                          │
+│ Absolute profit Long          │ 11.654 USDT                     │
+│ Absolute profit Short         │ -18.286 USDT                    │
 │                               │                                 │
-│ Best Pair                     │ XAUT/USDT:USDT -9.64%           │
-│ Worst Pair                    │ XAUT/USDT:USDT -9.64%           │
-│ Best trade                    │ XAUT/USDT:USDT 1.81%            │
-│ Worst trade                   │ XAUT/USDT:USDT -2.23%           │
-│ Best day                      │ 212.874 USDT                    │
-│ Worst day                     │ -225.054 USDT                   │
-│ Days win/draw/lose            │ 30 / 262 / 23                   │
-│ Min/Max/Avg. Duration Winners │ 0d 07:00 / 24d 18:15 / 3d 16:48 │
-│ Min/Max/Avg. Duration Losers  │ 0d 00:00 / 9d 04:45 / 2d 09:03  │
-│ Max Consecutive Wins / Loss   │ 5 / 3                           │
+│ Best Pair                     │ ADA/USDT:USDT 4.46%             │
+│ Worst Pair                    │ ETH/USDT:USDT -4.75%            │
+│ Best trade                    │ SOL/USDT:USDT 8.57%             │
+│ Worst trade                   │ ETH/USDT:USDT -11.58%           │
+│ Best day                      │ 81.843 USDT                     │
+│ Worst day                     │ -56.44 USDT                     │
+│ Days win/draw/lose            │ 166 / 73 / 126                  │
+│ Min/Max/Avg. Duration Winners │ 0d 00:15 / 39d 21:30 / 1d 22:15 │
+│ Min/Max/Avg. Duration Losers  │ 0d 00:15 / 30d 19:15 / 3d 02:18 │
+│ Max Consecutive Wins / Loss   │ 34 / 8                          │
 │ Rejected Entry signals        │ 0                               │
 │ Entry/Exit Timeouts           │ 0 / 0                           │
 │                               │                                 │
-│ Min balance                   │ 9035.915 USDT                   │
-│ Max balance                   │ 10474.163 USDT                  │
-│ Max % of account underwater   │ 13.73%                          │
-│ Absolute drawdown             │ 1438.248 USDT (13.73%)          │
-│ Drawdown duration             │ 136 days 08:30:00               │
-│ Profit at drawdown start      │ 474.163 USDT                    │
-│ Profit at drawdown end        │ -964.085 USDT                   │
-│ Drawdown start                │ 2025-09-29 07:45:00             │
-│ Drawdown end                  │ 2026-02-12 16:15:00             │
-│ Market change                 │ 59.40%                          │
+│ Min balance                   │ 769.082 USDT                    │
+│ Max balance                   │ 1100.604 USDT                   │
+│ Max % of account underwater   │ 24.68%                          │
+│ Absolute Drawdown (Account)   │ 24.68%                          │
+│ Absolute Drawdown             │ 252.07 USDT                     │
+│ Drawdown high                 │ 21.152 USDT                     │
+│ Drawdown low                  │ -230.918 USDT                   │
+│ Drawdown Start                │ 2024-01-03 12:00:00             │
+│ Drawdown End                  │ 2024-08-01 02:15:00             │
+│ Market change                 │ 143.95%                         │
 └───────────────────────────────┴─────────────────────────────────┘
 
-Backtested 2025-04-03 14:00:00 -> 2026-02-15 20:00:00 | Max open trades : 1
+Backtested 2024-01-03 02:00:00 -> 2025-01-01 00:00:00 | Max open trades : 7
