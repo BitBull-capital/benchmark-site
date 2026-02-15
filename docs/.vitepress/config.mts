@@ -21,7 +21,8 @@ export default defineConfig({
       { 
         text: 'Strategies',
         items: [
-          { text: 'BBScalper', link: '/bbscalper/stats' }
+          { text: 'BBScalper', link: '/bbscalper/stats' },
+          { text: 'Funded', link: '/funded/stats' }
         ]
       },
       { text: 'Team', link: '/team' },
@@ -33,6 +34,15 @@ export default defineConfig({
         items: [
           { text: 'Stats', link: '/bbscalper/stats' },
           { text: 'Plots', link: '/bbscalper/plots' }
+        ]
+      }
+    ],
+      '/funded/': [
+      {
+        text: 'Overview',
+        items: [
+          { text: 'Stats', link: '/funded/stats' },
+          { text: 'Plots', link: '/funded/plots' }
         ]
       }
     ]
