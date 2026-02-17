@@ -2,53 +2,53 @@
 ┃ Metric                        ┃ Value                           ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
 │ Backtesting from              │ 2025-04-03 14:00:00             │
-│ Backtesting to                │ 2026-02-16 20:30:00             │
+│ Backtesting to                │ 2026-02-17 21:30:00             │
 │ Trading Mode                  │ Isolated Futures                │
 │ Max open trades               │ 1                               │
 │                               │                                 │
-│ Total/Daily Avg Trades        │ 56 / 0.18                       │
+│ Total/Daily Avg Trades        │ 66 / 0.21                       │
 │ Starting balance              │ 10000 USDT                      │
-│ Final balance                 │ 9039.424 USDT                   │
-│ Absolute profit               │ -960.576 USDT                   │
-│ Total profit %                │ -9.61%                          │
-│ CAGR %                        │ -10.91%                         │
-│ Sortino                       │ -6.28                           │
-│ Sharpe                        │ -0.36                           │
-│ Calmar                        │ -4.19                           │
-│ SQN                           │ -0.80                           │
-│ Profit factor                 │ 0.80                            │
-│ Expectancy (Ratio)            │ -17.15 (-0.08)                  │
-│ Avg. daily profit             │ -3.011 USDT                     │
-│ Avg. stake amount             │ 9735.41 USDT                    │
-│ Total trade volume            │ 1093212.204 USDT                │
+│ Final balance                 │ 10478.709 USDT                  │
+│ Absolute profit               │ 478.709 USDT                    │
+│ Total profit %                │ 4.79%                           │
+│ CAGR %                        │ 5.48%                           │
+│ Sortino                       │ 3.63                            │
+│ Sharpe                        │ 0.17                            │
+│ Calmar                        │ 2.81                            │
+│ SQN                           │ 0.35                            │
+│ Profit factor                 │ 1.09                            │
+│ Expectancy (Ratio)            │ 7.25 (0.03)                     │
+│ Avg. daily profit             │ 1.496 USDT                      │
+│ Avg. stake amount             │ 10696.238 USDT                  │
+│ Total trade volume            │ 1414245.709 USDT                │
 │                               │                                 │
-│ Long / Short trades           │ 32 / 24                         │
-│ Long / Short profit %         │ 4.60% / -14.20%                 │
-│ Long / Short profit USDT      │ 459.742 / -1420.319             │
+│ Long / Short trades           │ 34 / 32                         │
+│ Long / Short profit %         │ 8.53% / -3.74%                  │
+│ Long / Short profit USDT      │ 852.648 / -373.939              │
 │                               │                                 │
-│ Best Pair                     │ XAUT/USDT:USDT -9.61%           │
-│ Worst Pair                    │ XAUT/USDT:USDT -9.61%           │
+│ Best Pair                     │ XAUT/USDT:USDT 4.79%            │
+│ Worst Pair                    │ XAUT/USDT:USDT 4.79%            │
 │ Best trade                    │ XAUT/USDT:USDT 1.81%            │
 │ Worst trade                   │ XAUT/USDT:USDT -2.23%           │
-│ Best day                      │ 212.874 USDT                    │
-│ Worst day                     │ -225.054 USDT                   │
-│ Days win/draw/lose            │ 31 / 265 / 23                   │
-│ Min/Max/Avg. Duration Winners │ 0d 07:00 / 24d 18:15 / 3d 14:37 │
-│ Min/Max/Avg. Duration Losers  │ 0d 00:00 / 9d 04:45 / 2d 09:03  │
-│ Max Consecutive Wins / Loss   │ 5 / 3                           │
+│ Best day                      │ 231.256 USDT                    │
+│ Worst day                     │ -243.359 USDT                   │
+│ Days win/draw/lose            │ 41 / 257 / 22                   │
+│ Min/Max/Avg. Duration Winners │ 0d 01:15 / 24d 18:15 / 2d 18:43 │
+│ Min/Max/Avg. Duration Losers  │ 0d 00:00 / 6d 22:15 / 2d 06:32  │
+│ Max Consecutive Wins / Loss   │ 9 / 5                           │
 │ Rejected Entry signals        │ 0                               │
 │ Entry/Exit Timeouts           │ 0 / 0                           │
 │                               │                                 │
-│ Min balance                   │ 9035.915 USDT                   │
-│ Max balance                   │ 10474.163 USDT                  │
-│ Max % of account underwater   │ 13.73%                          │
-│ Absolute drawdown             │ 1438.248 USDT (13.73%)          │
-│ Drawdown duration             │ 136 days 08:30:00               │
-│ Profit at drawdown start      │ 474.163 USDT                    │
-│ Profit at drawdown end        │ -964.085 USDT                   │
-│ Drawdown start                │ 2025-09-29 07:45:00             │
-│ Drawdown end                  │ 2026-02-12 16:15:00             │
-│ Market change                 │ 58.47%                          │
+│ Min balance                   │ 9790.254 USDT                   │
+│ Max balance                   │ 11508.052 USDT                  │
+│ Max % of account underwater   │ 10.17%                          │
+│ Absolute drawdown             │ 1170.513 USDT (10.17%)          │
+│ Drawdown duration             │ 23 days 05:00:00                │
+│ Profit at drawdown start      │ 1508.052 USDT                   │
+│ Profit at drawdown end        │ 337.538 USDT                    │
+│ Drawdown start                │ 2026-01-20 11:00:00             │
+│ Drawdown end                  │ 2026-02-12 16:00:00             │
+│ Market change                 │ 55.06%                          │
 └───────────────────────────────┴─────────────────────────────────┘
 
-Backtested 2025-04-03 14:00:00 -> 2026-02-16 20:30:00 | Max open trades : 1
+Backtested 2025-04-03 14:00:00 -> 2026-02-17 21:30:00 | Max open trades : 1
