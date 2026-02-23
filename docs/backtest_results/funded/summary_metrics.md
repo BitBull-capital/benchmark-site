@@ -2,7 +2,7 @@
 ┃ Metric                        ┃ Value                           ┃
 ┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
 │ Backtesting from              │ 2025-04-03 14:00:00             │
-│ Backtesting to                │ 2026-02-22 09:30:00             │
+│ Backtesting to                │ 2026-02-23 18:30:00             │
 │ Trading Mode                  │ Isolated Futures                │
 │ Max open trades               │ 1                               │
 │                               │                                 │
@@ -11,14 +11,14 @@
 │ Final balance                 │ 10125.951 USDT                  │
 │ Absolute profit               │ 125.951 USDT                    │
 │ Total profit %                │ 1.26%                           │
-│ CAGR %                        │ 1.42%                           │
-│ Sortino                       │ 0.90                            │
+│ CAGR %                        │ 1.41%                           │
+│ Sortino                       │ 0.89                            │
 │ Sharpe                        │ 0.04                            │
-│ Calmar                        │ 0.62                            │
+│ Calmar                        │ 0.61                            │
 │ SQN                           │ 0.09                            │
 │ Profit factor                 │ 1.02                            │
 │ Expectancy (Ratio)            │ 1.85 (0.01)                     │
-│ Avg. daily profit             │ 0.389 USDT                      │
+│ Avg. daily profit             │ 0.386 USDT                      │
 │ Avg. stake amount             │ 10685.972 USDT                  │
 │ Total trade volume            │ 1455989.628 USDT                │
 │                               │                                 │
@@ -48,7 +48,7 @@
 │ Profit at drawdown end        │ 125.951 USDT                    │
 │ Drawdown start                │ 2026-01-20 11:00:00             │
 │ Drawdown end                  │ 2026-02-20 16:30:00             │
-│ Market change                 │ 62.41%                          │
+│ Market change                 │ 65.38%                          │
 └───────────────────────────────┴─────────────────────────────────┘
 
-Backtested 2025-04-03 14:00:00 -> 2026-02-22 09:30:00 | Max open trades : 1
+Backtested 2025-04-03 14:00:00 -> 2026-02-23 18:30:00 | Max open trades : 1
