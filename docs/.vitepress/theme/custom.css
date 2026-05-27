@@ -1,23 +1,49 @@
-  :root {
-    --vp-home-hero-name-color: #5086A1;
+/* ── Semantic colour tokens ──────────────────────────── */
+:root {
+  --bd-positive:    #16a34a;
+  --bd-positive-bg: rgba(24, 121, 78, 0.10);
+  --bd-negative:    #dc2626;
+  --bd-negative-bg: rgba(220, 38, 38, 0.10);
+  --bd-neutral:     #b45309;
+  --bd-neutral-bg:  rgba(180, 83, 9, 0.10);
 
-    --vp-button-brand-text: #000;         /* Normal state */
-    --vp-button-brand-hover-text: #000;   /* Hover state */
+  /* 6-tier rating scale (bad → ok → good → excellent → extraordinary → legendary) */
+  --bd-tier-bad:           #dc2626;
+  --bd-tier-ok:            #ca8a04;
+  --bd-tier-good:          #16a34a;
+  --bd-tier-excellent:     #2563eb;
+  --bd-tier-extraordinary: #7c3aed;
+  --bd-tier-legendary:     #ea580c;
+}
 
-    --vp-button-brand-bg: #6aa1b7;
-    --vp-button-brand-hover-bg: #8CCCD5;
-    --vp-layout-max-width: clamp(80%, 90vw, 1750px);
-  }
+.dark {
+  --bd-positive:    #4ade80;
+  --bd-positive-bg: rgba(74, 222, 128, 0.12);
+  --bd-negative:    #f87171;
+  --bd-negative-bg: rgba(248, 113, 113, 0.12);
+  --bd-neutral:     #fbbf24;
+  --bd-neutral-bg:  rgba(251, 191, 36, 0.12);
 
+  /* 6-tier rating scale — lighter shades for dark backgrounds */
+  --bd-tier-bad:           #f87171;
+  --bd-tier-ok:            #fbbf24;
+  --bd-tier-good:          #4ade80;
+  --bd-tier-excellent:     #60a5fa;
+  --bd-tier-extraordinary: #a78bfa;
+  --bd-tier-legendary:     #fb923c;
+}
 
-  .VPDoc:not(.has-sidebar) .container {
-    max-width: clamp(100%, 85vw, 1414px) !important;
-  }
+/* ── Layout width overrides ──────────────────────────── */
 
-  .VPDoc:not(.has-sidebar) .content {
-    max-width: clamp(100%, 70vw, 1094px) !important;
-  }
+/* Both pages use layout: page */
+.VPPage {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 3vw, 3rem);
+}
 
-  .VPDoc.has-aside .content-container {
-    max-width: clamp(100%, 70vw, 1002px) !important;
-  }
+/* Ensure tables inside doc pages don't collapse */
+.vp-doc table {
+  display: table;
+  width: 100%;
+}
