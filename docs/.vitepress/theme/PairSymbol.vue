@@ -60,7 +60,7 @@ const parsed = computed(() => {
 }
 
 .icon-overlap {
-  margin-left: -6px;
+  margin-left: -4px;
 }
 
 .pair-label {

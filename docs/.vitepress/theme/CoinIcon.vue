@@ -70,8 +70,8 @@ const sizeClass = computed(() =>
   flex-shrink: 0;
 }
 
-.coin-md { width: 22px; height: 22px; font-size: 9px; }
-.coin-sm { width: 18px; height: 18px; font-size: 8px; }
+.coin-md { width: 16px; height: 16px; font-size: 7px; }
+.coin-sm { width: 13px; height: 13px; font-size: 6px; }
 
 .coin-fallback {
   color: #fff;

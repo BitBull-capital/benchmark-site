@@ -77,6 +77,19 @@ function sortIcon(key: string) {
   if (sortKey.value !== key) return '↕'
   return sortDir.value === -1 ? '↓' : '↑'
 }
+
+const MEDALS = ['🥇', '🥈', '🥉'] as const
+
+// Top 3 by profit across ALL benchmarks (ignores filters/sort)
+const podium = computed(() => {
+  const sorted = [...props.benchmarks]
+    .filter(b => b.profit != null)
+    .sort((a, b) => (b.profit ?? -Infinity) - (a.profit ?? -Infinity))
+    .slice(0, 3)
+  const map = new Map<string, number>()
+  sorted.forEach((b, i) => map.set(b.id, i))
+  return map
+})
 </script>
 
 <template>
@@ -103,6 +116,7 @@ function sortIcon(key: string) {
       <table class="benchmark-table">
         <thead>
           <tr>
+            <th class="medal-th"></th>
             <th class="sortable" @click="toggleSort('strategy')">
               Strategy <span class="sort-icon">{{ sortIcon('strategy') }}</span>
             </th>
@@ -137,6 +151,9 @@ function sortIcon(key: string) {
             class="benchmark-row"
             @click="navigate(b.id)"
           >
+            <td class="medal-td">
+              <span v-if="podium.has(b.id)" class="medal">{{ MEDALS[podium.get(b.id)!] }}</span>
+            </td>
             <td>
               <span class="strategy-badge">{{ b.strategy }}</span>
             </td>
@@ -243,13 +260,15 @@ function sortIcon(key: string) {
 }
 
 .benchmark-table th {
-  padding: 0.7rem 1rem;
+  padding: 0.32rem 0.85rem;
   text-align: left;
   font-weight: 600;
   color: var(--vp-c-text-2);
   white-space: nowrap;
   user-select: none;
-  letter-spacing: 0.01em;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .benchmark-table th.num { text-align: right; }
@@ -276,7 +295,7 @@ function sortIcon(key: string) {
 .benchmark-row:hover { background: var(--vp-c-bg-soft); }
 
 .benchmark-table td {
-  padding: 0.75rem 1rem;
+  padding: 0.32rem 0.85rem;
   color: var(--vp-c-text-1);
   vertical-align: middle;
 }
@@ -325,6 +344,11 @@ function sortIcon(key: string) {
 
 .profit-pill.positive { color: var(--bd-positive); }
 .profit-pill.negative { color: var(--bd-negative); }
+
+/* ── Medal ───────────────────────────────────────────── */
+.medal-th { width: 1.5rem; padding: 0; }
+.medal-td { width: 1.5rem; text-align: center; padding: 0 0 0 0.5rem; }
+.medal     { font-size: 1rem; line-height: 1; }
 
 /* ── Arrow ───────────────────────────────────────────── */
 .arrow-th { width: 2rem; }

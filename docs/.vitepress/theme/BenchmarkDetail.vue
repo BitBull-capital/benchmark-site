@@ -756,7 +756,7 @@ const runDate = computed(() => {
 }
 
 .metrics-table th {
-  padding: 0.55rem 1rem;
+  padding: 0.3rem 0.85rem;
   text-align: left;
   font-weight: 600;
   color: var(--vp-c-text-3);
@@ -777,7 +777,7 @@ const runDate = computed(() => {
 .metrics-table tbody tr:hover { background: var(--vp-c-bg-soft); }
 
 .mt-name {
-  padding: 0.65rem 1rem;
+  padding: 0.3rem 0.85rem;
   font-weight: 600;
   color: var(--vp-c-text-1);
   white-space: nowrap;
@@ -786,7 +786,7 @@ const runDate = computed(() => {
 }
 
 .mt-value {
-  padding: 0.65rem 1rem;
+  padding: 0.3rem 0.85rem;
   text-align: right;
   white-space: nowrap;
   width: 1%;
@@ -818,17 +818,17 @@ const runDate = computed(() => {
 
 .mt-secondary {
   display: block;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: var(--vp-c-text-3);
-  margin-top: 0.15rem;
+  margin-top: 0.05rem;
   font-family: var(--vp-font-family-mono);
 }
 
 .mt-desc {
-  padding: 0.65rem 1rem;
+  padding: 0.3rem 0.85rem;
   color: var(--vp-c-text-3);
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: 0.82rem;
+  line-height: 1.45;
   width: 100%;
   vertical-align: middle;
 }
@@ -836,7 +836,7 @@ const runDate = computed(() => {
 .mt-th-thresh { white-space: nowrap; }
 
 .mt-thresh {
-  padding: 0.65rem 1rem;
+  padding: 0.3rem 0.85rem;
   vertical-align: middle;
   white-space: nowrap;
 }
@@ -892,12 +892,12 @@ const runDate = computed(() => {
 }
 
 .table-wrap th {
-  padding: 0.6rem 0.85rem;
+  padding: 0.3rem 0.75rem;
   text-align: left;
   font-weight: 600;
   color: var(--vp-c-text-2);
   white-space: nowrap;
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   user-select: none;
@@ -930,7 +930,7 @@ const runDate = computed(() => {
 }
 
 .table-wrap td {
-  padding: 0.6rem 0.85rem;
+  padding: 0.28rem 0.75rem;
   color: var(--vp-c-text-1);
   vertical-align: middle;
 }
