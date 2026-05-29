@@ -962,6 +962,10 @@ const runDate = computed(() => {
 .mt-th-desc  { width: 100%; }
 .mt-th-value { text-align: right; white-space: nowrap; }
 
+@media (max-width: 768px) {
+  .mt-th-desc, .mt-desc { display: none; }
+}
+
 .metrics-table tr {
   border-bottom: 1px solid var(--vp-c-divider);
 }
@@ -1127,6 +1131,7 @@ const runDate = computed(() => {
   padding: 0.28rem 0.75rem;
   color: var(--vp-c-text-1);
   vertical-align: middle;
+  white-space: nowrap;
 }
 
 .table-wrap td.num { text-align: right; }

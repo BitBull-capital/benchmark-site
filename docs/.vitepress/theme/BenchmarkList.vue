@@ -385,6 +385,7 @@ function sparklineColor(curve: number[]): string {
   padding: 0.32rem 0.85rem;
   color: var(--vp-c-text-1);
   vertical-align: middle;
+  white-space: nowrap;
   border-left: none;
   border-right: none;
 }
