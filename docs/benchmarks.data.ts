@@ -26,9 +26,38 @@ export interface BenchmarkSummary {
   avgDuration: string
   startingBalance: number
   finalBalance: number
+  backtestDays: number
+  /** Downsampled equity curve: ~20 cumulative balance values, oldest→newest */
+  equityCurve: number[]
 }
 
 export declare const data: BenchmarkSummary[]
+
+/** Downsample a full equity curve to at most `n` evenly-spaced points */
+function downsample(curve: number[], n = 20): number[] {
+  if (curve.length <= n) return curve
+  const result: number[] = []
+  for (let i = 0; i < n; i++) {
+    const idx = Math.round((i / (n - 1)) * (curve.length - 1))
+    result.push(+curve[idx].toFixed(2))
+  }
+  return result
+}
+
+/** Build a cumulative balance curve from raw trades */
+function buildEquityCurve(trades: any[], startingBalance: number): number[] {
+  const closed = (trades ?? [])
+    .filter((t: any) => !t.is_open)
+    .sort((a: any, b: any) => a.close_timestamp - b.close_timestamp)
+  if (!closed.length) return [startingBalance]
+  let bal = startingBalance
+  const curve: number[] = [bal]
+  for (const t of closed) {
+    bal += t.profit_abs
+    curve.push(bal)
+  }
+  return downsample(curve)
+}
 
 export default {
   load(): BenchmarkSummary[] {
@@ -81,6 +110,8 @@ export default {
             avgDuration: s.holding_avg ?? '',
             startingBalance: s.starting_balance ?? 0,
             finalBalance: s.final_balance ?? 0,
+            backtestDays: s.backtest_days ?? 0,
+            equityCurve: buildEquityCurve(s.trades, s.starting_balance ?? 0),
           })
         }
       } catch (e) {

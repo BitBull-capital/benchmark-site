@@ -4,12 +4,25 @@ layout: page
 
 <script setup>
 import { useData, withBase } from 'vitepress'
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { data as allBenchmarks } from '../benchmarks.data'
 
 const { params } = useData()
 const benchmarkData = ref(null)
 const loading = ref(true)
 const error = ref(null)
+
+// Compute medal rank: top-3 by profit within the same timeframe group
+const medal = computed(() => {
+  const id = params.value.id
+  const current = allBenchmarks.find(b => b.id === id)
+  if (!current || current.profit <= 0) return undefined
+  const peers = allBenchmarks
+    .filter(b => b.timeframe === current.timeframe && b.profit > 0)
+    .sort((a, b) => b.profit - a.profit)
+  const rank = peers.findIndex(b => b.id === id)
+  return rank >= 0 && rank <= 2 ? rank : undefined
+})
 
 onMounted(async () => {
   try {
@@ -37,7 +50,7 @@ onMounted(async () => {
     ⚠️ Failed to load benchmark data: {{ error }}
   </div>
 
-  <BenchmarkDetail v-else-if="benchmarkData" :data="benchmarkData" />
+  <BenchmarkDetail v-else-if="benchmarkData" :data="benchmarkData" :medal="medal" />
 </div>
 
 <style>

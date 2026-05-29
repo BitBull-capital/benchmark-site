@@ -7,18 +7,21 @@ const props = defineProps<{ benchmarks: BenchmarkSummary[] }>()
 
 const router = useRouter()
 const search = ref('')
-const filterTimeframe = ref('')
 const sortKey = ref<keyof BenchmarkSummary>('profit')
 const sortDir = ref<1 | -1>(-1)
 
-const timeframes = computed(() => {
-  const tfs = new Set(props.benchmarks.map(b => b.timeframe).filter(Boolean))
-  return Array.from(tfs).sort() as string[]
-})
+// Canonical timeframe order — unknown TFs fall to the end
+const TF_ORDER = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w']
+function tfRank(tf: string) {
+  const i = TF_ORDER.indexOf(tf)
+  return i === -1 ? 999 : i
+}
+
+// Timeframes that always get a section, even when empty
+const PINNED_TFS = ['1m', '5m', '15m', '30m']
 
 const filtered = computed(() => {
   let items = [...props.benchmarks]
-
   if (search.value) {
     const q = search.value.toLowerCase()
     items = items.filter(b =>
@@ -27,23 +30,45 @@ const filtered = computed(() => {
       b.id.toLowerCase().includes(q)
     )
   }
-
-  if (filterTimeframe.value) {
-    items = items.filter(b => b.timeframe === filterTimeframe.value)
-  }
-
-  items.sort((a, b) => {
-    const va: any = a[sortKey.value]
-    const vb: any = b[sortKey.value]
-    if (va == null) return 1
-    if (vb == null) return -1
-    if (va < vb) return -1 * sortDir.value
-    if (va > vb) return 1 * sortDir.value
-    return 0
-  })
-
   return items
 })
+
+// Groups sorted by canonical TF order; rows within each group sorted by current sort state
+const groups = computed(() => {
+  const map = new Map<string, BenchmarkSummary[]>()
+
+  // Seed pinned timeframes so they always appear
+  for (const tf of PINNED_TFS) map.set(tf, [])
+
+  for (const b of filtered.value) {
+    if (!map.has(b.timeframe)) map.set(b.timeframe, [])
+    map.get(b.timeframe)!.push(b)
+  }
+
+  const sorted = [...map.entries()].sort(([a], [b]) => tfRank(a) - tfRank(b))
+
+  return sorted.map(([tf, rows]) => {
+    const sortedRows = [...rows].sort((a, b) => {
+      const va: any = a[sortKey.value]
+      const vb: any = b[sortKey.value]
+      if (va == null) return 1
+      if (vb == null) return -1
+      if (va < vb) return -1 * sortDir.value
+      if (va > vb) return 1 * sortDir.value
+      return 0
+    })
+    // Top 3 by profit within this timeframe group — only positive profit earns a medal
+    const byProfit = [...rows]
+      .filter(b => b.profit != null && b.profit > 0)
+      .sort((a, b) => (b.profit ?? -Infinity) - (a.profit ?? -Infinity))
+      .slice(0, 3)
+    const podium = new Map<string, number>()
+    byProfit.forEach((b, i) => podium.set(b.id, i))
+    return { tf, rows: sortedRows, podium }
+  })
+})
+
+const totalFiltered = computed(() => filtered.value.length)
 
 function navigate(id: string) {
   router.go(withBase(`/benchmarks/${id}`))
@@ -78,120 +103,166 @@ function sortIcon(key: string) {
   return sortDir.value === -1 ? '↓' : '↑'
 }
 
+function formatPeriod(days: number): string {
+  if (!days) return '—'
+  const y = Math.floor(days / 365)
+  const rem1 = days - y * 365
+  const mo = Math.floor(rem1 / 30)
+  const rem2 = rem1 - mo * 30
+  const w = Math.floor(rem2 / 7)
+  const d = rem2 % 7
+  const parts: string[] = []
+  if (y)  parts.push(`${y}y`)
+  if (mo) parts.push(`${mo}m`)
+  if (w)  parts.push(`${w}w`)
+  if (d)  parts.push(`${d}d`)
+  return parts.length ? parts.join(' ') : '—'
+}
+
 const MEDALS = ['🥇', '🥈', '🥉'] as const
 
-// Top 3 by profit across ALL benchmarks (ignores filters/sort)
-const podium = computed(() => {
-  const sorted = [...props.benchmarks]
-    .filter(b => b.profit != null)
-    .sort((a, b) => (b.profit ?? -Infinity) - (a.profit ?? -Infinity))
-    .slice(0, 3)
-  const map = new Map<string, number>()
-  sorted.forEach((b, i) => map.set(b.id, i))
-  return map
-})
+// ── Equity sparklines ─────────────────────────────────
+function sparklinePts(curve: number[]): string {
+  const n = curve.length
+  if (n < 2) return '26,9'
+  const minV = Math.min(...curve), maxV = Math.max(...curve)
+  const range = maxV - minV || 1
+  return curve.map((v, i) => {
+    const x = (i / (n - 1)) * 52
+    const y = 16 - ((v - minV) / range) * 14
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+}
+
+function sparklineColor(curve: number[]): string {
+  if (curve.length < 2) return 'var(--vp-c-text-3)'
+  return curve[curve.length - 1] >= curve[0] ? 'var(--bd-positive)' : 'var(--bd-negative)'
+}
 </script>
 
 <template>
   <div class="benchmark-list">
     <!-- Toolbar -->
     <div class="list-toolbar">
-      <span class="result-count">{{ filtered.length }} result{{ filtered.length !== 1 ? 's' : '' }}</span>
-      <div class="filters">
-        <input
-          v-model="search"
-          type="search"
-          placeholder="Search strategy…"
-          class="search-input"
-        />
-        <select v-model="filterTimeframe" class="filter-select">
-          <option value="">All timeframes</option>
-          <option v-for="tf in timeframes" :key="tf" :value="tf">{{ tf }}</option>
-        </select>
+      <span class="result-count">{{ totalFiltered }} result{{ totalFiltered !== 1 ? 's' : '' }}</span>
+      <input
+        v-model="search"
+        type="search"
+        placeholder="Search strategy…"
+        class="search-input"
+      />
+    </div>
+
+    <!-- Empty state (no data at all) -->
+    <div v-if="groups.length === 0" class="empty-outer">
+      <span class="empty-icon">📭</span>
+      <p>No benchmark results found.</p>
+      <p v-if="search" class="empty-hint">Try clearing your search.</p>
+      <p v-else class="empty-hint">Push a backtest result to see it listed here.</p>
+    </div>
+
+    <!-- One section per timeframe -->
+    <section v-for="group in groups" :key="group.tf" class="tf-section">
+      <div class="tf-heading">
+        <span class="tf-label">{{ group.tf }}</span>
+        <span class="tf-count">{{ group.rows.length }} run{{ group.rows.length !== 1 ? 's' : '' }}</span>
       </div>
-    </div>
 
-    <!-- Table -->
-    <div class="table-wrap">
-      <table class="benchmark-table">
-        <thead>
-          <tr>
-            <th class="medal-th"></th>
-            <th class="sortable" @click="toggleSort('strategy')">
-              Strategy <span class="sort-icon">{{ sortIcon('strategy') }}</span>
-            </th>
-            <th class="sortable" @click="toggleSort('timeframe')">
-              TF <span class="sort-icon">{{ sortIcon('timeframe') }}</span>
-            </th>
-            <th class="sortable" @click="toggleSort('date')">
-              Date <span class="sort-icon">{{ sortIcon('date') }}</span>
-            </th>
-            <th class="sortable num" @click="toggleSort('profit')">
-              Profit % <span class="sort-icon">{{ sortIcon('profit') }}</span>
-            </th>
-            <th class="sortable num" @click="toggleSort('totalTrades')">
-              Trades <span class="sort-icon">{{ sortIcon('totalTrades') }}</span>
-            </th>
-            <th class="sortable num" @click="toggleSort('winRate')">
-              Win Rate <span class="sort-icon">{{ sortIcon('winRate') }}</span>
-            </th>
-            <th class="sortable num" @click="toggleSort('sharpe')">
-              Sharpe <span class="sort-icon">{{ sortIcon('sharpe') }}</span>
-            </th>
-            <th class="sortable num" @click="toggleSort('maxDrawdown')">
-              Max DD <span class="sort-icon">{{ sortIcon('maxDrawdown') }}</span>
-            </th>
-            <th class="arrow-th"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="b in filtered"
-            :key="b.id"
-            class="benchmark-row"
-            @click="navigate(b.id)"
-          >
-            <td class="medal-td">
-              <span v-if="podium.has(b.id)" class="medal">{{ MEDALS[podium.get(b.id)!] }}</span>
-            </td>
-            <td>
-              <span class="strategy-badge">{{ b.strategy }}</span>
-            </td>
-            <td>
-              <span class="timeframe-badge">{{ b.timeframe }}</span>
-            </td>
-            <td class="mono">{{ formatDate(b.date) }}</td>
-            <td class="num">
-              <span class="profit-pill" :class="profitClass(b.profit)">
-                {{ formatPct(b.profit) }}
-              </span>
-            </td>
-            <td class="mono num">{{ b.totalTrades?.toLocaleString() ?? '—' }}</td>
-            <td class="mono num">
-              {{ b.winRate != null ? b.winRate.toFixed(1) + '%' : '—' }}
-            </td>
-            <td class="mono num">{{ b.sharpe?.toFixed(2) ?? '—' }}</td>
-            <td class="mono num" :class="profitClass(b.maxDrawdown)">
-              {{ b.maxDrawdown != null ? b.maxDrawdown.toFixed(2) + '%' : '—' }}
-            </td>
-            <td class="arrow-td">
-              <span class="arrow">→</span>
-            </td>
-          </tr>
+      <div class="table-wrap">
+        <table class="benchmark-table">
+          <thead>
+            <tr>
+              <th class="medal-th"></th>
+              <th class="sortable" @click="toggleSort('strategy')">
+                Strategy <span class="sort-icon">{{ sortIcon('strategy') }}</span>
+              </th>
+              <th class="sortable" @click="toggleSort('timeframe')">
+                TF <span class="sort-icon">{{ sortIcon('timeframe') }}</span>
+              </th>
+              <th class="trend-th" title="Profit trend across runs of the same strategy &amp; timeframe">Trend</th>
+              <th class="sortable" @click="toggleSort('backtestDays')">
+                Period <span class="sort-icon">{{ sortIcon('backtestDays') }}</span>
+              </th>
+              <th class="sortable" @click="toggleSort('date')">
+                Date <span class="sort-icon">{{ sortIcon('date') }}</span>
+              </th>
+              <th class="sortable num" @click="toggleSort('profit')">
+                Profit % <span class="sort-icon">{{ sortIcon('profit') }}</span>
+              </th>
+              <th class="sortable num" @click="toggleSort('totalTrades')">
+                Trades <span class="sort-icon">{{ sortIcon('totalTrades') }}</span>
+              </th>
+              <th class="sortable num" @click="toggleSort('winRate')">
+                Win Rate <span class="sort-icon">{{ sortIcon('winRate') }}</span>
+              </th>
+              <th class="sortable num" @click="toggleSort('sharpe')">
+                Sharpe <span class="sort-icon">{{ sortIcon('sharpe') }}</span>
+              </th>
+              <th class="sortable num" @click="toggleSort('maxDrawdown')">
+                Max DD <span class="sort-icon">{{ sortIcon('maxDrawdown') }}</span>
+              </th>
+              <th class="arrow-th"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="b in group.rows"
+              :key="b.id"
+              class="benchmark-row"
+              @click="navigate(b.id)"
+            >
+              <td class="medal-td">
+                <MedalBadge
+                  v-if="group.podium.has(b.id)"
+                  :rank="(group.podium.get(b.id) as 0|1|2)"
+                  :profit="b.profit ?? 0"
+                />
+              </td>
+              <td>
+                <span class="strategy-badge">{{ b.strategy }}</span>
+              </td>
+              <td>
+                <span class="timeframe-badge">{{ b.timeframe }}</span>
+              </td>
+              <td class="trend-td">
+                <svg class="sparkline" viewBox="0 0 52 18" aria-hidden="true">
+                  <polyline
+                    :points="sparklinePts(b.equityCurve)"
+                    fill="none"
+                    :stroke="sparklineColor(b.equityCurve)"
+                    stroke-width="1.8"
+                    stroke-linejoin="round"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </td>
+              <td class="mono period-cell">{{ formatPeriod(b.backtestDays) }}</td>
+              <td class="mono">{{ formatDate(b.date) }}</td>
+              <td class="num">
+                <span class="profit-pill" :class="profitClass(b.profit)">
+                  {{ formatPct(b.profit) }}
+                </span>
+              </td>
+              <td class="mono num">{{ b.totalTrades?.toLocaleString() ?? '—' }}</td>
+              <td class="mono num">
+                {{ b.winRate != null ? b.winRate.toFixed(1) + '%' : '—' }}
+              </td>
+              <td class="mono num">{{ b.sharpe?.toFixed(2) ?? '—' }}</td>
+              <td class="mono num" :class="profitClass(b.maxDrawdown)">
+                {{ b.maxDrawdown != null ? b.maxDrawdown.toFixed(2) + '%' : '—' }}
+              </td>
+              <td class="arrow-td">
+                <span class="arrow">→</span>
+              </td>
+            </tr>
 
-          <tr v-if="filtered.length === 0">
-            <td colspan="9" class="empty-state">
-              <div class="empty-inner">
-                <span class="empty-icon">📭</span>
-                <p>No benchmark results found.</p>
-                <p v-if="search || filterTimeframe" class="empty-hint">Try clearing your filters.</p>
-                <p v-else class="empty-hint">Push a backtest result to see it listed here.</p>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+            <tr v-if="group.rows.length === 0" class="empty-row">
+              <td colspan="12" class="empty-tf">No runs yet</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -207,7 +278,7 @@ const podium = computed(() => {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .result-count {
@@ -215,14 +286,7 @@ const podium = computed(() => {
   color: var(--vp-c-text-2);
 }
 
-.filters {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.search-input,
-.filter-select {
+.search-input {
   padding: 0.4rem 0.75rem;
   border: 1px solid var(--vp-c-border);
   border-radius: 6px;
@@ -231,14 +295,35 @@ const podium = computed(() => {
   font-size: 0.875rem;
   outline: none;
   transition: border-color 0.2s;
-  min-width: 0;
+  width: 200px;
 }
 
-.search-input { width: 200px; }
-
-.search-input:focus,
-.filter-select:focus {
+.search-input:focus {
   border-color: var(--vp-c-brand-1);
+}
+
+/* ── Timeframe section ───────────────────────────────── */
+.tf-section {
+  margin-bottom: 2.5rem;
+}
+
+.tf-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+
+.tf-label {
+  font-family: var(--vp-font-family-mono);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+}
+
+.tf-count {
+  font-size: 0.8rem;
+  color: var(--vp-c-text-3);
 }
 
 /* ── Table ───────────────────────────────────────────── */
@@ -269,6 +354,8 @@ const podium = computed(() => {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  border-left: none;
+  border-right: none;
 }
 
 .benchmark-table th.num { text-align: right; }
@@ -298,6 +385,8 @@ const podium = computed(() => {
   padding: 0.32rem 0.85rem;
   color: var(--vp-c-text-1);
   vertical-align: middle;
+  border-left: none;
+  border-right: none;
 }
 
 .benchmark-table td.num { text-align: right; }
@@ -320,6 +409,7 @@ const podium = computed(() => {
   white-space: nowrap;
 }
 
+/* ── Timeframe badge ─────────────────────────────────── */
 .timeframe-badge {
   display: inline-block;
   vertical-align: middle;
@@ -344,6 +434,31 @@ const podium = computed(() => {
 
 .profit-pill.positive { color: var(--bd-positive); }
 .profit-pill.negative { color: var(--bd-negative); }
+
+/* ── Trend sparkline ─────────────────────────────────── */
+.trend-th {
+  width: 60px;
+  color: var(--vp-c-text-3);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.trend-td {
+  width: 60px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.sparkline {
+  display: block;
+  width: 52px;
+  height: 18px;
+}
+
+/* ── Period ──────────────────────────────────────────── */
+.period-cell {
+  color: var(--vp-c-text-2);
+  white-space: nowrap;
+}
 
 /* ── Medal ───────────────────────────────────────────── */
 .medal-th { width: 1.5rem; padding: 0; }
@@ -370,10 +485,20 @@ const podium = computed(() => {
   transform: translateX(4px);
 }
 
-/* ── Empty state ─────────────────────────────────────── */
-.empty-state { text-align: center; padding: 0 !important; }
 
-.empty-inner { padding: 3.5rem 1rem; }
+/* ── Empty tf row ────────────────────────────────────── */
+.empty-tf {
+  padding: 1rem 0.85rem !important;
+  color: var(--vp-c-text-3);
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+/* ── Empty state ─────────────────────────────────────── */
+.empty-outer {
+  text-align: center;
+  padding: 3.5rem 1rem;
+}
 
 .empty-icon {
   font-size: 2.5rem;
@@ -381,10 +506,10 @@ const podium = computed(() => {
   margin-bottom: 0.75rem;
 }
 
-.empty-inner p { margin: 0.2rem 0; color: var(--vp-c-text-2); }
+.empty-outer p { margin: 0.2rem 0; color: var(--vp-c-text-2); }
 
 .empty-hint {
   font-size: 0.85rem;
-  color: var(--vp-c-text-3) !important;
+  color: var(--vp-c-text-3);
 }
 </style>

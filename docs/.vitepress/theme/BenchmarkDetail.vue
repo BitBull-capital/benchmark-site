@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRouter, withBase } from 'vitepress'
+import EquityCurve from './EquityCurve.vue'
+
+interface Trade {
+  close_timestamp: number
+  profit_abs: number
+  is_open: boolean
+  is_short: boolean
+  trade_duration: number   // minutes
+}
 
 interface ResultRow {
   key: string
@@ -46,9 +55,27 @@ interface StrategyData {
   losses: number
   draws: number
   backtest_days: number
+  max_consecutive_wins: number
+  max_consecutive_losses: number
+  winning_days: number
+  losing_days: number
+  draw_days: number
+  winner_holding_avg: string
+  loser_holding_avg: string
+  drawdown_duration: string
+  market_change: number
+  trades: Trade[]
   results_per_pair: ResultRow[]
   results_per_enter_tag: ResultRow[]
   exit_reason_summary: ResultRow[]
+  // Long / short breakdown (futures only)
+  trade_count_long: number
+  trade_count_short: number
+  profit_total_long: number
+  profit_total_long_abs: number
+  profit_total_short: number
+  profit_total_short_abs: number
+  trading_mode: string
   // Config fields
   pairlist: string[]
   stake_amount: number | string
@@ -60,12 +87,11 @@ interface StrategyData {
   trailing_stop_positive: number | null
   trailing_stop_positive_offset: number
   trailing_only_offset_is_reached: boolean
-  trading_mode: string
   margin_mode: string
   minimal_roi: Record<string, number>
 }
 
-const props = defineProps<{ data: StrategyData }>()
+const props = defineProps<{ data: StrategyData; medal?: 0 | 1 | 2 }>()
 const router = useRouter()
 
 const s = computed(() => props.data)
@@ -115,6 +141,57 @@ const enterTagRows = computed(() =>
 const exitReasonRows = computed(() =>
   exitSort.sort((s.value.exit_reason_summary ?? []).filter(r => r.key !== 'TOTAL' && r.key !== ''))
 )
+
+// ── Long / Short breakdown ────────────────────────────
+function formatMinutes(mins: number): string {
+  if (!mins) return '—'
+  const d = Math.floor(mins / 1440)
+  const h = Math.floor((mins % 1440) / 60)
+  const m = Math.floor(mins % 60)
+  const parts: string[] = []
+  if (d) parts.push(`${d}d`)
+  if (h) parts.push(`${h}h`)
+  if (m && d < 1) parts.push(`${m}m`)
+  return parts.length ? parts.join(' ') : '< 1m'
+}
+
+const longShortStats = computed(() => {
+  const closed = (s.value.trades ?? []).filter(t => !t.is_open)
+  const longs  = closed.filter(t => !t.is_short)
+  const shorts = closed.filter(t =>  t.is_short)
+
+  const wins = (arr: Trade[]) => arr.filter(t => t.profit_abs > 0).length
+  const avgDur = (arr: Trade[]) =>
+    arr.length ? arr.reduce((sum, t) => sum + (t.trade_duration ?? 0), 0) / arr.length : 0
+
+  return {
+    hasShorts: (s.value.trade_count_short ?? 0) > 0,
+    rows: [
+      {
+        dir: 'Long',
+        icon: '📈',
+        trades:    longs.length,
+        wins:      wins(longs),
+        losses:    longs.length - wins(longs),
+        winrate:   longs.length ? wins(longs) / longs.length : 0,
+        profitPct: (s.value.profit_total_long ?? 0) * 100,
+        profitAbs:  s.value.profit_total_long_abs ?? 0,
+        avgDurMins: avgDur(longs),
+      },
+      {
+        dir: 'Short',
+        icon: '📉',
+        trades:    shorts.length,
+        wins:      wins(shorts),
+        losses:    shorts.length - wins(shorts),
+        winrate:   shorts.length ? wins(shorts) / shorts.length : 0,
+        profitPct: (s.value.profit_total_short ?? 0) * 100,
+        profitAbs:  s.value.profit_total_short_abs ?? 0,
+        avgDurMins: avgDur(shorts),
+      },
+    ],
+  }
+})
 
 function pct(v: number, decimals = 2) {
   if (v === undefined || v === null) return '—'
@@ -201,6 +278,7 @@ const METRIC_SCALES: Record<string, number[]> = {
   drawdown:     [-Infinity, -0.30, -0.20, -0.10, -0.05, -0.02],
   profitFactor: [-Infinity,  1.1,   1.3,   1.5,   2.0,   3.0 ],
   expectancy:   [-Infinity,  1,     5,     15,    30,    50  ],
+  sqn:          [-Infinity,  1.0,   2.0,   3.0,   5.0,   7.0 ],
 }
 
 function metricTier(key: string, value: number): string {
@@ -337,10 +415,18 @@ const runDate = computed(() => {
       <pre class="config-pre"><code v-html="highlightJson(configJson)" /></pre>
     </details>
 
+    <!-- Equity curve -->
+    <EquityCurve :trades="s.trades ?? []" :starting-balance="s.starting_balance" />
+
     <!-- Key metrics card -->
     <div class="meta-card">
       <div class="meta-top">
         <div class="meta-badges">
+          <MedalBadge
+            v-if="props.medal != null"
+            :rank="props.medal"
+            :profit="s.profit_total * 100"
+          />
           <span class="badge-strategy">{{ s.strategy_name }}</span>
           <span class="badge-tf">{{ s.timeframe }}</span>
           <span class="badge-range">{{ s.timerange }}<span v-if="s.backtest_days" class="badge-period"> ({{ formatPeriod(s.backtest_days) }})</span></span>
@@ -443,6 +529,12 @@ const runDate = computed(() => {
               <td class="mt-value" :class="metricTier('expectancy', s.expectancy)"><span class="mt-primary">{{ num(s.expectancy) }}</span></td>
             </tr>
             <tr>
+              <td class="mt-name">SQN</td>
+              <td class="mt-desc">System Quality Number — measures how consistently the strategy generates returns relative to its variance. Van Tharp scale: ≥ 2 good, ≥ 3 excellent, ≥ 5 outstanding, ≥ 7 Holy Grail.</td>
+              <td class="mt-thresh"><span v-for="t in metricThresholds('sqn')" :key="t.cls" class="thresh-item" :class="t.cls">{{ t.value }}</span></td>
+              <td class="mt-value" :class="metricTier('sqn', s.sqn)"><span class="mt-primary">{{ num(s.sqn) }}</span></td>
+            </tr>
+            <tr>
               <td class="mt-name">Balance</td>
               <td class="mt-desc">Final portfolio value at the end of the backtest, starting from the initial balance.</td>
               <td class="mt-thresh mt-no-thresh">—</td>
@@ -455,6 +547,108 @@ const runDate = computed(() => {
         </table>
       </div>
     </div>
+
+    <!-- ── Additional statistics ────────────────────────── -->
+    <section class="detail-section">
+      <h2 class="section-title">📊 Additional Statistics</h2>
+      <div class="table-wrap">
+        <table class="addl-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th class="num">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="addl-name">Best / Worst Day</td>
+              <td class="num mono">
+                <span class="positive">{{ pct(s.backtest_best_day * 100) }}</span>
+                <span class="addl-sep">/</span>
+                <span class="negative">{{ pct(s.backtest_worst_day * 100) }}</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="addl-name">Consecutive Wins / Losses</td>
+              <td class="num mono">
+                <span class="positive">{{ s.max_consecutive_wins }}W</span>
+                <span class="addl-sep">/</span>
+                <span class="negative">{{ s.max_consecutive_losses }}L</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="addl-name">Winning / Losing Days</td>
+              <td class="num mono">
+                <span class="positive">{{ s.winning_days }}W</span>
+                <span class="addl-sep">/</span>
+                <span class="negative">{{ s.losing_days }}L</span>
+                <span class="addl-muted"> / {{ s.draw_days }} flat &nbsp;(of {{ s.backtest_days }})</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="addl-name">Winner / Loser Avg Hold</td>
+              <td class="num mono">
+                <span>{{ s.winner_holding_avg || '—' }}</span>
+                <span class="addl-sep">/</span>
+                <span>{{ s.loser_holding_avg || '—' }}</span>
+              </td>
+            </tr>
+            <tr>
+              <td class="addl-name">Market Change <span class="addl-muted">(buy &amp; hold)</span></td>
+              <td class="num mono" :class="valueClass(s.market_change)">{{ pct(s.market_change * 100) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Long vs Short breakdown ─────────────────────── -->
+    <section v-if="longShortStats.hasShorts" class="detail-section">
+      <h2 class="section-title">⚖️ Long vs Short</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Direction</th>
+              <th class="num">Trades</th>
+              <th class="num">W / L</th>
+              <th class="num">Win %</th>
+              <th class="num">Total Profit %</th>
+              <th class="num">Total Profit $</th>
+              <th class="num">Avg Duration</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in longShortStats.rows" :key="row.dir">
+              <td>
+                <span class="dir-badge">
+                  <svg
+                    viewBox="0 0 24 24"
+                    :class="row.dir === 'Short' ? 'dir-icon-short' : 'dir-icon-long'"
+                    aria-hidden="true"
+                  >
+                    <path d="M3.293,14.707a1,1,0,0,1,1.414-1.414L11,19.586V2a1,1,0,0,1,2,0V19.586l6.293-6.293a1,1,0,0,1,1.414,1.414l-8,8a1,1,0,0,1-.325.216.986.986,0,0,1-.764,0,1,1,0,0,1-.325-.216Z"/>
+                  </svg>
+                  {{ row.dir }}
+                </span>
+              </td>
+              <td class="num mono">{{ row.trades }}</td>
+              <td class="num mono">{{ row.wins }} / {{ row.losses }}</td>
+              <td class="num mono" :class="winrateClass(row.winrate)">
+                {{ (row.winrate * 100).toFixed(1) }}%
+              </td>
+              <td class="num mono" :class="valueClass(row.profitPct)">
+                {{ pct(row.profitPct) }}
+              </td>
+              <td class="num mono" :class="valueClass(row.profitAbs)">
+                {{ abs(row.profitAbs) }}
+              </td>
+              <td class="num mono">{{ formatMinutes(row.avgDurMins) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     <!-- ── Results per pair ───────────────────────────── -->
     <section class="detail-section">
@@ -798,7 +992,7 @@ const runDate = computed(() => {
 .mt-value.negative { color: var(--bd-negative); }
 
 .mt-value.tier-bad           { color: var(--bd-tier-bad); }
-.mt-value.tier-ok            { color: var(--bd-tier-ok); }
+.mt-value.tier-ok            { color: var(--vp-c-text-1); }
 .mt-value.tier-good          { color: var(--bd-tier-good); }
 .mt-value.tier-excellent     { color: var(--bd-tier-excellent); }
 .mt-value.tier-extraordinary { color: var(--bd-tier-extraordinary); }
@@ -964,6 +1158,93 @@ const runDate = computed(() => {
   font-weight: 600;
   color: var(--vp-c-brand-1);
 }
+
+/* ── Additional stats table ──────────────────────────── */
+.addl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 0 !important;
+}
+
+.addl-table thead tr {
+  background: var(--vp-c-bg-soft);
+  border-bottom: 2px solid var(--vp-c-border);
+}
+
+.addl-table th {
+  padding: 0.3rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--vp-c-text-2);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.addl-table th.num { text-align: right; }
+
+.addl-table tr {
+  border-bottom: 1px solid var(--vp-c-divider);
+}
+
+.addl-table tbody tr:last-child { border-bottom: none; }
+.addl-table tbody tr:hover { background: var(--vp-c-bg-soft); }
+
+.addl-name {
+  padding: 0.3rem 0.75rem;
+  font-weight: 500;
+  color: var(--vp-c-text-1);
+  white-space: nowrap;
+}
+
+.addl-table td.num {
+  padding: 0.3rem 0.75rem;
+  text-align: right;
+}
+
+.addl-sep {
+  color: var(--vp-c-text-3);
+  margin: 0 0.3rem;
+}
+
+.addl-muted {
+  color: var(--vp-c-text-3);
+  font-size: 0.82em;
+}
+
+.dir-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  font-size: 0.82rem;
+}
+
+.dir-icon-long,
+.dir-icon-short {
+  width: 0.85em;
+  height: 0.85em;
+  flex-shrink: 0;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.dir-icon-long {
+  fill: #6A9FE0;
+  stroke: #6A9FE0;
+  transform: rotate(180deg);
+}
+
+.dir-icon-short {
+  fill: #D96070;
+  stroke: #D96070;
+}
+
+/* Lighter tints in dark mode */
+:global(.dark) .dir-icon-long  { fill: #C1D8FF; stroke: #C1D8FF; }
+:global(.dark) .dir-icon-short { fill: #FFA6B0; stroke: #FFA6B0; }
 
 .tag-badge {
   display: inline-block;
