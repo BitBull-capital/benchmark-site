@@ -224,8 +224,7 @@ function sparklineColor(curve: number[]): string {
         <table class="benchmark-table">
           <thead>
             <tr>
-              <th class="row-num-th">#</th>
-              <th class="medal-th"></th>
+              <th class="medal-th">#</th>
               <th class="sortable" @click="toggleSort(group.tf, 'strategy')">
                 Strategy <span class="sort-icon">{{ sortIcon(group.tf, 'strategy') }}</span>
               </th>
@@ -267,13 +266,13 @@ function sparklineColor(curve: number[]): string {
               class="benchmark-row"
               @click="navigate(b.id)"
             >
-              <td class="row-num">{{ idx + 1 }}</td>
               <td class="medal-td">
                 <MedalBadge
                   v-if="group.podium.has(b.id)"
                   :rank="(group.podium.get(b.id) as 0|1|2)"
                   :profit="b.profit ?? 0"
                 />
+                <span v-else class="row-num">{{ idx + 1 }}</span>
               </td>
               <td>
                 <span class="strategy-badge">{{ b.strategy }}</span>
@@ -317,7 +316,7 @@ function sparklineColor(curve: number[]): string {
             </tr>
 
             <tr v-if="group.rows.length === 0" class="empty-row">
-              <td colspan="14" class="empty-tf">No runs yet</td>
+              <td colspan="13" class="empty-tf">No runs yet</td>
             </tr>
           </tbody>
         </table>
@@ -622,32 +621,28 @@ function sparklineColor(curve: number[]): string {
   white-space: nowrap;
 }
 
-/* ── Row number ──────────────────────────────────────── */
-.row-num-th {
-  width: 1.5rem;
-  text-align: right;
-  padding-right: 0.4rem;
+/* ── Medal / row-number (shared column) ──────────────── */
+.medal-th {
+  width: 2rem;
+  padding: 0 0.5rem;
+  text-align: center;
   color: var(--vp-c-text-3);
   font-size: 0.72rem;
 }
+.medal-td {
+  width: 2rem;
+  padding: 0 0.5rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
 .row-num {
-  text-align: right;
-  padding-right: 0.4rem;
   font-family: var(--vp-font-family-mono);
   font-size: 0.72rem;
   color: var(--vp-c-text-3);
   user-select: none;
-  white-space: nowrap;
+  line-height: 1;
 }
-
-@media (max-width: 768px) {
-  .row-num-th, .row-num { display: none; }
-}
-
-/* ── Medal ───────────────────────────────────────────── */
-.medal-th { width: 1.5rem; padding: 0; }
-.medal-td { width: 1.5rem; text-align: center; padding: 0 0 0 0.5rem; }
-.medal     { font-size: 1rem; line-height: 1; }
 
 /* ── Arrow ───────────────────────────────────────────── */
 .arrow-th { width: 2rem; }
