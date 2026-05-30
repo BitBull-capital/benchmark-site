@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useData } from 'vitepress'
 
 const props = defineProps<{
   rank: 0 | 1 | 2
@@ -20,12 +21,13 @@ interface Ray {
   opMin: number; opMax: number
   opDur: number;  opDelay: number
   lenDur: number; lenDelay: number
+  sharp: boolean  // ~25% of rays stay crisp in dark mode
 }
 
 function generateRays(): Ray[] {
   const n = 9 + Math.floor(Math.random() * 4)
   return Array.from({ length: n }, (_, i) => {
-    const baseY2 = 10 + Math.random() * 7
+    const baseY2 = 9 + Math.random() * 4
     const baseOp = 0.3 + Math.random() * 0.45
     return {
       angle:    (360 / n) * i + (Math.random() - 0.5) * (360 / n) * 0.55,
@@ -40,11 +42,19 @@ function generateRays(): Ray[] {
       opDelay:  +((Math.random() - 0.5) * 6).toFixed(2),
       lenDur:   +(0.9 + Math.random() * 2.6).toFixed(2),
       lenDelay: +((Math.random() - 0.5) * 6).toFixed(2),
+      sharp:    Math.random() < 0.28,
     }
   })
 }
 
-const sunRays = ref(showRays ? generateRays() : [])
+const sunRays = ref<Ray[]>([])
+const { isDark } = useData()
+
+// Generate client-side only — SSR would bake a fixed seed into the HTML,
+// causing the same rays on every visit.
+onMounted(() => {
+  if (showRays) sunRays.value = generateRays()
+})
 </script>
 
 <template>
@@ -57,22 +67,32 @@ const sunRays = ref(showRays ? generateRays() : [])
       aria-hidden="true"
     >
       <defs>
-        <filter id="rays-blur">
-          <feGaussianBlur stdDeviation="0.3"/>
+        <!-- Soft rays: heavy blur in dark, light in light -->
+        <filter id="rays-blur-soft">
+          <feGaussianBlur :stdDeviation="isDark ? 2.5 : 0.3"/>
+        </filter>
+        <!-- Sharp rays: slightly softer than light mode, noticeably crisper than soft -->
+        <filter id="rays-blur-sharp">
+          <feGaussianBlur :stdDeviation="isDark ? 1.6 : 0.3"/>
         </filter>
       </defs>
-      <g filter="url(#rays-blur)">
+      <g>
         <polygon
           v-for="(ray, ri) in sunRays"
           :key="ri"
           :points="`${-ray.width/2},${ray.y1} ${ray.width/2},${ray.y1} 0,${ray.y2}`"
-          class="ray-polygon"
-          :fill-opacity="ray.opMin"
+          :filter="ray.sharp ? 'url(#rays-blur-sharp)' : 'url(#rays-blur-soft)'"
+          :fill="isDark ? '#fef08a' : '#f59e0b'"
+          :fill-opacity="isDark ? (ray.sharp ? ray.opMin * 0.55 : ray.opMin * 0.4) : ray.opMin"
           :transform="`rotate(${ray.angle})`"
         >
           <animate
             attributeName="fill-opacity"
-            :values="`${ray.opMin};${ray.opMax};${ray.opMin}`"
+            :values="isDark
+              ? (ray.sharp
+                  ? `${(ray.opMin*0.55).toFixed(2)};${(ray.opMax*0.55).toFixed(2)};${(ray.opMin*0.55).toFixed(2)}`
+                  : `${(ray.opMin*0.4).toFixed(2)};${(ray.opMax*0.4).toFixed(2)};${(ray.opMin*0.4).toFixed(2)}`)
+              : `${ray.opMin};${ray.opMax};${ray.opMin}`"
             :dur="`${ray.opDur}s`"
             :begin="`${ray.opDelay}s`"
             repeatCount="indefinite"
@@ -128,10 +148,9 @@ const sunRays = ref(showRays ? generateRays() : [])
   filter: drop-shadow(0 0 3px rgba(161, 82, 0, 0.6));
 }
 
-.dark .rays-svg {
-  filter: drop-shadow(0 0 2px rgba(253, 224, 71, 0.3));
+:global(.dark) .rays-svg {
+  filter:
+    drop-shadow(0 0 3px rgba(254, 240, 138, 0.5))
+    drop-shadow(0 0 8px rgba(254, 240, 138, 0.2));
 }
-
-.ray-polygon { fill: #f59e0b; }
-.dark .ray-polygon { fill: #fde047; }
 </style>

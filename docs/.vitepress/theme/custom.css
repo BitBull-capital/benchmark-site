@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&display=swap');
+
 /* ── Semantic colour tokens ──────────────────────────── */
 :root {
   --bd-positive:    #16a34a;
@@ -32,6 +34,10 @@
   --bd-tier-extraordinary: #a78bfa;
   --bd-tier-legendary:     #fb923c;
 }
+
+/* ── Hide VitePress nav bar ──────────────────────────── */
+.VPNav        { display: none !important; }
+.VPContent    { padding-top: 0 !important; }
 
 /* ── Layout width overrides ──────────────────────────── */
 

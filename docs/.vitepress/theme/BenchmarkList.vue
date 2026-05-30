@@ -1,11 +1,26 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useRouter, withBase } from 'vitepress'
+import { useRouter, withBase, useData } from 'vitepress'
 import type { BenchmarkSummary } from '../../benchmarks.data'
+import { useCurrency } from './useCurrency'
 
 const props = defineProps<{ benchmarks: BenchmarkSummary[] }>()
 
 const router = useRouter()
+const { isDark } = useData()
+const { currency, toggle: toggleCurrency, convert } = useCurrency()
+
+function fmtPnl(usd: number): string {
+  const val = convert(usd)
+  const abs = Math.abs(val)
+  const sign = val >= 0 ? '+' : '-'
+  const sym  = currency.value === 'DKK' ? 'kr' : '$'
+  let formatted: string
+  if (abs >= 1_000_000)     formatted = (abs / 1_000_000).toFixed(1) + 'M'
+  else if (abs >= 1_000)    formatted = (abs / 1_000).toFixed(1) + 'k'
+  else                      formatted = abs.toFixed(0)
+  return currency.value === 'DKK' ? `${sign}${formatted} ${sym}` : `${sign}${sym}${formatted}`
+}
 const search = ref('')
 const sortKey = ref<keyof BenchmarkSummary>('profit')
 const sortDir = ref<1 | -1>(-1)
@@ -142,15 +157,39 @@ function sparklineColor(curve: number[]): string {
 
 <template>
   <div class="benchmark-list">
+    <h1 class="page-title">Benchmark Hub</h1>
+
     <!-- Toolbar -->
     <div class="list-toolbar">
       <span class="result-count">{{ totalFiltered }} result{{ totalFiltered !== 1 ? 's' : '' }}</span>
-      <input
-        v-model="search"
-        type="search"
-        placeholder="Search strategy…"
-        class="search-input"
-      />
+      <div class="toolbar-right">
+        <input
+          v-model="search"
+          type="search"
+          placeholder="Search strategy…"
+          class="search-input"
+        />
+        <button class="currency-toggle" @click="toggleCurrency" :title="`Switch to ${currency === 'USD' ? 'DKK' : 'USD'}`">
+          <span :class="{ active: currency === 'USD' }">USD</span>
+          <span class="cur-sep">/</span>
+          <span :class="{ active: currency === 'DKK' }">DKK</span>
+        </button>
+        <button
+          class="theme-toggle"
+          :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+          @click="isDark = !isDark"
+        >
+          <!-- Sun (shown in dark mode → click to go light) -->
+          <svg v-if="isDark" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+          <!-- Moon (shown in light mode → click to go dark) -->
+          <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Empty state (no data at all) -->
@@ -188,6 +227,9 @@ function sparklineColor(curve: number[]): string {
               </th>
               <th class="sortable num" @click="toggleSort('profit')">
                 Profit % <span class="sort-icon">{{ sortIcon('profit') }}</span>
+              </th>
+              <th class="sortable num" @click="toggleSort('profitUsdt')">
+                PnL {{ currency }} <span class="sort-icon">{{ sortIcon('profitUsdt') }}</span>
               </th>
               <th class="sortable num" @click="toggleSort('totalTrades')">
                 Trades <span class="sort-icon">{{ sortIcon('totalTrades') }}</span>
@@ -243,6 +285,9 @@ function sparklineColor(curve: number[]): string {
                   {{ formatPct(b.profit) }}
                 </span>
               </td>
+              <td class="mono num" :class="profitClass(b.profitUsdt)">
+                {{ b.profitUsdt != null ? fmtPnl(b.profitUsdt) : '—' }}
+              </td>
               <td class="mono num">{{ b.totalTrades?.toLocaleString() ?? '—' }}</td>
               <td class="mono num">
                 {{ b.winRate != null ? b.winRate.toFixed(1) + '%' : '—' }}
@@ -257,7 +302,7 @@ function sparklineColor(curve: number[]): string {
             </tr>
 
             <tr v-if="group.rows.length === 0" class="empty-row">
-              <td colspan="12" class="empty-tf">No runs yet</td>
+              <td colspan="13" class="empty-tf">No runs yet</td>
             </tr>
           </tbody>
         </table>
@@ -269,6 +314,28 @@ function sparklineColor(curve: number[]): string {
 <style scoped>
 .benchmark-list {
   margin-top: 0.5rem;
+}
+
+.page-title {
+  font-family: 'Space Grotesk', var(--vp-font-family-base);
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin: 1.5rem 0 1.25rem;
+  border: none !important;
+  padding: 0 !important;
+
+  /* Gradient text */
+  background: linear-gradient(120deg, #16a34a 0%, #2563eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+:global(.dark) .page-title {
+  background: linear-gradient(120deg, #4ade80 0%, #60a5fa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
 }
 
 /* ── Toolbar ─────────────────────────────────────────── */
@@ -286,8 +353,16 @@ function sparklineColor(curve: number[]): string {
   color: var(--vp-c-text-2);
 }
 
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .search-input {
-  padding: 0.4rem 0.75rem;
+  height: 2rem;
+  box-sizing: border-box;
+  padding: 0 0.75rem;
   border: 1px solid var(--vp-c-border);
   border-radius: 6px;
   background: var(--vp-c-bg-soft);
@@ -300,6 +375,71 @@ function sparklineColor(curve: number[]): string {
 
 .search-input:focus {
   border-color: var(--vp-c-brand-1);
+}
+
+.currency-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0 0.6rem;
+  height: 2rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 6px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-3);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+
+.currency-toggle:hover { border-color: var(--vp-c-brand-1); }
+
+.currency-toggle span.active {
+  color: var(--vp-c-text-1);
+}
+
+.cur-sep {
+  color: var(--vp-c-text-3);
+  font-weight: 300;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 6px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.theme-toggle:hover {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+}
+
+.theme-toggle svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Sun icon — fill the circle */
+.theme-toggle svg circle {
+  fill: currentColor;
+  stroke: none;
 }
 
 /* ── Timeframe section ───────────────────────────────── */
@@ -435,6 +575,9 @@ function sparklineColor(curve: number[]): string {
 
 .profit-pill.positive { color: var(--bd-positive); }
 .profit-pill.negative { color: var(--bd-negative); }
+
+.benchmark-table td.positive { color: var(--bd-positive); }
+.benchmark-table td.negative { color: var(--bd-negative); }
 
 /* ── Trend sparkline ─────────────────────────────────── */
 .trend-th {

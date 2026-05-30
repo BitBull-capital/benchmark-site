@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter, withBase } from 'vitepress'
+import { useRouter, withBase, useData } from 'vitepress'
 import EquityCurve from './EquityCurve.vue'
+import { useCurrency } from './useCurrency'
 
 interface Trade {
   close_timestamp: number
@@ -93,6 +94,8 @@ interface StrategyData {
 
 const props = defineProps<{ data: StrategyData; medal?: 0 | 1 | 2 }>()
 const router = useRouter()
+const { isDark } = useData()
+const { currency, toggle: toggleCurrency, fmtAbs, fmtBalance } = useCurrency()
 
 const s = computed(() => props.data)
 
@@ -205,8 +208,7 @@ function num(v: number, decimals = 2) {
 
 function abs(v: number) {
   if (v === undefined || v === null) return '—'
-  const sign = v >= 0 ? '+' : ''
-  return sign + '$' + Math.abs(v).toLocaleString('en', { maximumFractionDigits: 2, minimumFractionDigits: 2 })
+  return fmtAbs(v)
 }
 
 function pc(v: number) { return pct(v * 100) }
@@ -332,6 +334,8 @@ function exitBadgeClass(key: string, winrate: number) {
   return ''
 }
 
+const showConfig = ref(false)
+
 const configJson = computed(() => {
   const cfg = {
     strategy:                      s.value.strategy_name,
@@ -402,18 +406,62 @@ const runDate = computed(() => {
     <!-- Back button + title -->
     <div class="detail-header">
       <button class="back-btn" @click="router.go(withBase('/'))">← All benchmarks</button>
+      <div class="header-right">
+        <button class="currency-toggle" @click="toggleCurrency" :title="`Switch to ${currency === 'USD' ? 'DKK' : 'USD'}`">
+          <span :class="{ active: currency === 'USD' }">USD</span>
+          <span class="cur-sep">/</span>
+          <span :class="{ active: currency === 'DKK' }">DKK</span>
+        </button>
+        <button
+          class="theme-toggle"
+          :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+          @click="isDark = !isDark"
+        >
+          <svg v-if="isDark" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── TLDR pill badges + config toggle ─────────── -->
+    <div class="tldr-row">
+      <div class="tldr-pills">
+        <span class="tldr-pill" :class="s.profit_total_abs >= 0 ? 'pos' : 'neg'">
+          <span class="pill-label">Made</span>
+          <span class="pill-number">{{ fmtAbs(s.profit_total_abs) }}</span>
+        </span>
+        <span class="tldr-pill" :class="s.profit_total >= 0 ? 'pos' : 'neg'">
+          <span class="pill-label">Profit</span>
+          <span class="pill-number">{{ s.profit_total >= 0 ? '+' : '' }}{{ (s.profit_total * 100).toFixed(2) }}%</span>
+        </span>
+        <span class="tldr-pill" :class="s.winrate >= 0.5 ? 'pos' : 'neg'">
+          <span class="pill-label">Win Rate</span>
+          <span class="pill-number">{{ (s.winrate * 100).toFixed(1) }}%</span>
+        </span>
+        <span class="tldr-pill pos">
+          <span class="pill-label">Wins</span>
+          <span class="pill-number">{{ s.wins }}</span>
+        </span>
+        <span class="tldr-pill neg">
+          <span class="pill-label">Losses</span>
+          <span class="pill-number">{{ s.losses }}</span>
+        </span>
+      </div>
+      <button class="config-toggle" @click="showConfig = !showConfig">
+        <span class="config-chevron" :class="{ open: showConfig }">▶</span>
+        backtest.config.json
+      </button>
     </div>
 
     <!-- Backtest config card -->
-    <details class="config-card">
-      <summary class="config-header">
-        <span class="config-title">
-          <span class="config-chevron">▶</span> backtest.config.json
-        </span>
-        <span class="config-lang">JSON</span>
-      </summary>
+    <div v-if="showConfig" class="config-card">
       <pre class="config-pre"><code v-html="highlightJson(configJson)" /></pre>
-    </details>
+    </div>
 
     <!-- Equity curve -->
     <EquityCurve :trades="s.trades ?? []" :starting-balance="s.starting_balance" />
@@ -539,8 +587,8 @@ const runDate = computed(() => {
               <td class="mt-desc">Final portfolio value at the end of the backtest, starting from the initial balance.</td>
               <td class="mt-thresh mt-no-thresh">—</td>
               <td class="mt-value">
-                <span class="mt-primary mt-mono">${{ s.final_balance?.toLocaleString('en', { maximumFractionDigits: 0 }) }}</span>
-                <span class="mt-secondary">from ${{ s.starting_balance?.toLocaleString('en', { maximumFractionDigits: 0 }) }}</span>
+                <span class="mt-primary mt-mono">{{ fmtBalance(s.final_balance ?? 0) }}</span>
+                <span class="mt-secondary">from {{ fmtBalance(s.starting_balance ?? 0) }}</span>
               </td>
             </tr>
           </tbody>
@@ -614,7 +662,7 @@ const runDate = computed(() => {
               <th class="num">W / L</th>
               <th class="num">Win %</th>
               <th class="num">Total Profit %</th>
-              <th class="num">Total Profit $</th>
+              <th class="num">Total Profit {{ currency }}</th>
               <th class="num">Avg Duration</th>
             </tr>
           </thead>
@@ -662,7 +710,7 @@ const runDate = computed(() => {
               <th class="sortable num" @click="pairSort.toggle('trades')">Trades <span class="sort-icon">{{ pairSort.icon('trades') }}</span></th>
               <th class="sortable num" @click="pairSort.toggle('profit_mean_pct')">Avg Profit % <span class="sort-icon">{{ pairSort.icon('profit_mean_pct') }}</span></th>
               <th class="sortable num" @click="pairSort.toggle('profit_total_pct')">Total Profit % <span class="sort-icon">{{ pairSort.icon('profit_total_pct') }}</span></th>
-              <th class="sortable num" @click="pairSort.toggle('profit_total_abs')">Total Profit $ <span class="sort-icon">{{ pairSort.icon('profit_total_abs') }}</span></th>
+              <th class="sortable num" @click="pairSort.toggle('profit_total_abs')">Total Profit {{ currency }} <span class="sort-icon">{{ pairSort.icon('profit_total_abs') }}</span></th>
               <th class="sortable num" @click="pairSort.toggle('duration_avg')">Avg Duration <span class="sort-icon">{{ pairSort.icon('duration_avg') }}</span></th>
               <th class="sortable num" @click="pairSort.toggle('wins')">W / L <span class="sort-icon">{{ pairSort.icon('wins') }}</span></th>
               <th class="sortable num" @click="pairSort.toggle('winrate')">Win % <span class="sort-icon">{{ pairSort.icon('winrate') }}</span></th>
@@ -699,7 +747,7 @@ const runDate = computed(() => {
               <th class="sortable num" @click="enterSort.toggle('trades')">Trades <span class="sort-icon">{{ enterSort.icon('trades') }}</span></th>
               <th class="sortable num" @click="enterSort.toggle('profit_mean_pct')">Avg Profit % <span class="sort-icon">{{ enterSort.icon('profit_mean_pct') }}</span></th>
               <th class="sortable num" @click="enterSort.toggle('profit_total_pct')">Total Profit % <span class="sort-icon">{{ enterSort.icon('profit_total_pct') }}</span></th>
-              <th class="sortable num" @click="enterSort.toggle('profit_total_abs')">Total Profit $ <span class="sort-icon">{{ enterSort.icon('profit_total_abs') }}</span></th>
+              <th class="sortable num" @click="enterSort.toggle('profit_total_abs')">Total Profit {{ currency }} <span class="sort-icon">{{ enterSort.icon('profit_total_abs') }}</span></th>
               <th class="sortable num" @click="enterSort.toggle('duration_avg')">Avg Duration <span class="sort-icon">{{ enterSort.icon('duration_avg') }}</span></th>
               <th class="sortable num" @click="enterSort.toggle('wins')">W / L <span class="sort-icon">{{ enterSort.icon('wins') }}</span></th>
               <th class="sortable num" @click="enterSort.toggle('winrate')">Win % <span class="sort-icon">{{ enterSort.icon('winrate') }}</span></th>
@@ -732,7 +780,7 @@ const runDate = computed(() => {
               <th class="sortable num" @click="exitSort.toggle('trades')">Trades <span class="sort-icon">{{ exitSort.icon('trades') }}</span></th>
               <th class="sortable num" @click="exitSort.toggle('profit_mean_pct')">Avg Profit % <span class="sort-icon">{{ exitSort.icon('profit_mean_pct') }}</span></th>
               <th class="sortable num" @click="exitSort.toggle('profit_total_pct')">Total Profit % <span class="sort-icon">{{ exitSort.icon('profit_total_pct') }}</span></th>
-              <th class="sortable num" @click="exitSort.toggle('profit_total_abs')">Total Profit $ <span class="sort-icon">{{ exitSort.icon('profit_total_abs') }}</span></th>
+              <th class="sortable num" @click="exitSort.toggle('profit_total_abs')">Total Profit {{ currency }} <span class="sort-icon">{{ exitSort.icon('profit_total_abs') }}</span></th>
               <th class="sortable num" @click="exitSort.toggle('duration_avg')">Avg Duration <span class="sort-icon">{{ exitSort.icon('duration_avg') }}</span></th>
               <th class="sortable num" @click="exitSort.toggle('wins')">W / L <span class="sort-icon">{{ exitSort.icon('wins') }}</span></th>
               <th class="sortable num" @click="exitSort.toggle('winrate')">Win % <span class="sort-icon">{{ exitSort.icon('winrate') }}</span></th>
@@ -765,10 +813,119 @@ const runDate = computed(() => {
   padding-bottom: 3rem;
 }
 
+/* ── TLDR pill badges ────────────────────────────────── */
+.tldr-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tldr-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 5px;
+  font-family: 'Space Grotesk', var(--vp-font-family-mono);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  border: 1px solid var(--vp-c-border);
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-1);
+}
+
+.tldr-pill.pos .pill-number { color: var(--bd-positive); }
+.tldr-pill.neg .pill-number { color: var(--bd-negative); }
+
+.pill-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--vp-c-text-3);
+}
+
+/* ── Currency toggle ─────────────────────────────────── */
+.currency-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0 0.6rem;
+  height: 2rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 6px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-3);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+
+.currency-toggle:hover { border-color: var(--vp-c-brand-1); }
+
+.currency-toggle span.active {
+  color: var(--vp-c-text-1);
+}
+
+.cur-sep {
+  color: var(--vp-c-text-3);
+  font-weight: 300;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
 /* ── Header ──────────────────────────────────────────── */
 .detail-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   margin-top: 1.75rem;
   margin-bottom: 1.25rem;
+}
+
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 6px;
+  background: var(--vp-c-bg-soft);
+  color: var(--vp-c-text-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.theme-toggle:hover {
+  border-color: var(--vp-c-brand-1);
+  color: var(--vp-c-brand-1);
+}
+
+.theme-toggle svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.theme-toggle svg circle {
+  fill: currentColor;
+  stroke: none;
 }
 
 .back-btn {
@@ -788,48 +945,34 @@ const runDate = computed(() => {
 }
 
 /* ── Config card (JSON viewer) ───────────────────────── */
-.config-card {
-  border: 1px solid var(--vp-c-border);
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 1.25rem;
-  font-size: 0.85rem;
-}
-
-.config-header {
+.tldr-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 1rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.config-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 5px;
+  border: 1px solid var(--vp-c-border);
   background: var(--vp-c-bg-soft);
-  border-bottom: 1px solid var(--vp-c-border);
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-
-/* Remove default triangle on all browsers */
-.config-header::-webkit-details-marker { display: none; }
-.config-header::marker { display: none; }
-
-.config-card[open] .config-header {
-  border-bottom: 1px solid var(--vp-c-border);
-}
-
-.config-card:not([open]) .config-header {
-  border-bottom: none;
-}
-
-.config-title {
+  color: var(--vp-c-text-2);
   font-family: var(--vp-font-family-mono);
   font-size: 0.78rem;
-  color: var(--vp-c-text-2);
-  border: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  margin-left: auto;
+}
+
+.config-toggle:hover {
+  background: var(--vp-c-bg-mute);
+  color: var(--vp-c-text-1);
 }
 
 .config-chevron {
@@ -839,16 +982,16 @@ const runDate = computed(() => {
   display: inline-block;
 }
 
-.config-card[open] .config-chevron {
+.config-chevron.open {
   transform: rotate(90deg);
 }
 
-.config-lang {
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--vp-c-text-3);
+.config-card {
+  border: 1px solid var(--vp-c-border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+  font-size: 0.85rem;
 }
 
 .config-pre {
@@ -1155,6 +1298,11 @@ const runDate = computed(() => {
   font-size: 0.75rem;
   color: var(--vp-c-text-3);
   user-select: none;
+}
+
+@media (max-width: 768px) {
+  .row-num-th,
+  .row-num { display: none; }
 }
 
 .pair-key {

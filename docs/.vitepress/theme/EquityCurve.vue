@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useData } from 'vitepress'
+import { useCurrency } from './useCurrency'
 
 interface Trade {
   close_timestamp: number
@@ -12,25 +14,49 @@ const props = defineProps<{
   startingBalance: number
 }>()
 
-const W = 600, H = 130
-const P = { t: 14, r: 12, b: 28, l: 12 }
+const W = 600, H = 110
+const P = { t: 14, r: 12, b: 8, l: 12 }
 
 const svgEl = ref<SVGSVGElement | null>(null)
 const hoverSvgX = ref<number | null>(null)
 
+const { convert, currency } = useCurrency()
+const { isDark } = useData()
+
+// Explicit colours — avoids SVG CSS fill inheritance issues in dark mode
+const colLabel     = computed(() => isDark.value ? 'rgba(235,235,245,0.38)' : 'rgba(60,60,67,0.45)')
+const colLabelIn   = computed(() => isDark.value ? 'rgba(235,235,245,0.70)' : 'rgba(60,60,67,0.70)')
+const colKnockout  = computed(() => isDark.value ? '#1e1e20' : '#f6f6f7')
+
 const fmtBal = (v: number) => {
-  const abs = Math.abs(v)
-  const sign = v < 0 ? '-' : ''
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`
-  if (abs >= 1_000)     return `${sign}$${(abs / 1_000).toFixed(2)}k`
-  return `${sign}$${abs.toFixed(2)}`
+  const cv  = convert(v)
+  const abs = Math.abs(cv)
+  const sign = cv < 0 ? '-' : ''
+  const sym  = currency.value === 'DKK' ? 'kr' : '$'
+  if (abs >= 1_000_000) return currency.value === 'DKK'
+    ? `${sign}${(abs / 1_000_000).toFixed(2)}M ${sym}`
+    : `${sign}${sym}${(abs / 1_000_000).toFixed(2)}M`
+  if (abs >= 1_000) return currency.value === 'DKK'
+    ? `${sign}${(abs / 1_000).toFixed(2)}k ${sym}`
+    : `${sign}${sym}${(abs / 1_000).toFixed(2)}k`
+  return currency.value === 'DKK'
+    ? `${sign}${abs.toFixed(2)} ${sym}`
+    : `${sign}${sym}${abs.toFixed(2)}`
 }
 const fmtShort = (v: number) => {
-  const abs = Math.abs(v)
-  const sign = v < 0 ? '-' : ''
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`
-  if (abs >= 1_000)     return `${sign}$${(abs / 1_000).toFixed(0)}k`
-  return `${sign}$${abs.toFixed(0)}`
+  const cv  = convert(v)
+  const abs = Math.abs(cv)
+  const sign = cv < 0 ? '-' : ''
+  const sym  = currency.value === 'DKK' ? 'kr' : '$'
+  if (abs >= 1_000_000) return currency.value === 'DKK'
+    ? `${sign}${(abs / 1_000_000).toFixed(1)}M ${sym}`
+    : `${sign}${sym}${(abs / 1_000_000).toFixed(1)}M`
+  if (abs >= 1_000) return currency.value === 'DKK'
+    ? `${sign}${(abs / 1_000).toFixed(0)}k ${sym}`
+    : `${sign}${sym}${(abs / 1_000).toFixed(0)}k`
+  return currency.value === 'DKK'
+    ? `${sign}${abs.toFixed(0)} ${sym}`
+    : `${sign}${sym}${abs.toFixed(0)}`
 }
 const fmtDate = (ts: number) =>
   new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })
@@ -105,8 +131,8 @@ const chart = computed(() => {
     lblMax:   fmtShort(bMax),  yMax: P.t + 9,
     lblMin:   fmtShort(bMin),  yMin: P.t + gH - 3,
     lblBase:  fmtShort(props.startingBalance),
-    lblStart: fmtDate(tsMin),
-    lblEnd:   fmtDate(tsMax),
+    dateStart: fmtDate(tsMin),
+    dateEnd:   fmtDate(tsMax),
     pnl:    finalBal - props.startingBalance,
     pnlPct: (finalBal - props.startingBalance) / props.startingBalance * 100,
     tradeCount: closed.length,
@@ -226,10 +252,10 @@ const hoverPt = computed(() => {
 
       <!-- Area fill: two layers clipped at baseline, or single if baseline is off-range -->
       <template v-if="chart.showBase">
-        <polygon :points="chart.areaPts" fill="url(#eq-grad-up)" clip-path="url(#eq-clip-above)" />
-        <polygon :points="chart.areaPts" fill="url(#eq-grad-dn)" clip-path="url(#eq-clip-below)" />
+        <polygon :points="chart.areaPts" fill="url(#eq-grad-up)" stroke="none" clip-path="url(#eq-clip-above)" />
+        <polygon :points="chart.areaPts" fill="url(#eq-grad-dn)" stroke="none" clip-path="url(#eq-clip-below)" />
       </template>
-      <polygon v-else :points="chart.areaPts" :fill="chart.profitable ? 'url(#eq-grad-up)' : 'url(#eq-grad-dn)'" />
+      <polygon v-else :points="chart.areaPts" :fill="chart.profitable ? 'url(#eq-grad-up)' : 'url(#eq-grad-dn)'" stroke="none" />
 
       <!-- Baseline reference -->
       <line
@@ -256,17 +282,19 @@ const hoverPt = computed(() => {
       />
 
       <!-- Y-axis labels (inside chart) -->
-      <text :x="chart.leftX + 4" :y="chart.yMax" class="lbl lbl-in" text-anchor="start">{{ chart.lblMax }}</text>
-      <text :x="chart.leftX + 4" :y="chart.yMin" class="lbl lbl-in" text-anchor="start">{{ chart.lblMin }}</text>
+      <text :x="chart.leftX + 4" :y="chart.yMax" class="lbl lbl-in" text-anchor="start"
+        :style="{ fill: colLabelIn, stroke: colKnockout, paintOrder: 'stroke fill', strokeWidth: '3', strokeLinejoin: 'round' }"
+      >{{ chart.lblMax }}</text>
+      <text :x="chart.leftX + 4" :y="chart.yMin" class="lbl lbl-in" text-anchor="start"
+        :style="{ fill: colLabelIn, stroke: colKnockout, paintOrder: 'stroke fill', strokeWidth: '3', strokeLinejoin: 'round' }"
+      >{{ chart.lblMin }}</text>
       <text
         v-if="chart.showBase"
         :x="chart.leftX + 4" :y="chart.baseY - 2"
         class="lbl lbl-in lbl-base" text-anchor="start"
+        :style="{ fill: colLabelIn, stroke: colKnockout, paintOrder: 'stroke fill', strokeWidth: '3', strokeLinejoin: 'round' }"
       >{{ chart.lblBase }}</text>
 
-      <!-- X-axis date labels -->
-      <text :x="chart.leftX"  :y="chart.bottomY + 16" class="lbl" text-anchor="start">{{ chart.lblStart }}</text>
-      <text :x="chart.rightX" :y="chart.bottomY + 16" class="lbl" text-anchor="end">{{ chart.lblEnd }}</text>
 
       <!-- Hover crosshair -->
       <g v-if="hoverPt">
@@ -287,6 +315,12 @@ const hoverPt = computed(() => {
         />
       </g>
     </svg>
+
+    <!-- X-axis date labels as HTML — immune to SVG fill colour issues -->
+    <div class="equity-dates">
+      <span>{{ chart.dateStart }}</span>
+      <span>{{ chart.dateEnd }}</span>
+    </div>
   </div>
 </template>
 
@@ -297,6 +331,15 @@ const hoverPt = computed(() => {
   border-radius: 10px;
   overflow: hidden;
   margin-bottom: 1.25rem;
+}
+
+.equity-dates {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.2rem 0.75rem 0.35rem;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.65rem;
+  color: var(--vp-c-text-3);
 }
 
 .equity-header {
@@ -346,6 +389,8 @@ const hoverPt = computed(() => {
   cursor: crosshair;
 }
 
+.equity-svg :deep(polygon) { stroke: none !important; }
+
 .equity-svg :deep(.baseline) {
   stroke: var(--vp-c-text-3);
   stroke-width: 0.8;
@@ -369,17 +414,8 @@ const hoverPt = computed(() => {
 
 .equity-svg :deep(.lbl) {
   font-size: 6px;
-  fill: var(--vp-c-text-3);
   font-family: var(--vp-font-family-mono);
 }
-.equity-svg :deep(.lbl-in) {
-  fill: var(--vp-c-text-2);
-  paint-order: stroke fill;
-  stroke: var(--vp-c-bg-soft);
-  stroke-width: 3;
-  stroke-linejoin: round;
-}
-.equity-svg :deep(.lbl-base) { fill: var(--vp-c-text-2); }
 
 .equity-svg :deep(.crosshair-v) {
   stroke: var(--vp-c-text-3);
