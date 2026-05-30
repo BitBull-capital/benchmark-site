@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import { useRouter, withBase, useData } from 'vitepress'
 import type { BenchmarkSummary } from '../../benchmarks.data'
 import { useCurrency } from './useCurrency'
@@ -22,8 +22,42 @@ function fmtPnl(usd: number): string {
   return currency.value === 'DKK' ? `${sign}${formatted} ${sym}` : `${sign}${sym}${formatted}`
 }
 const search = ref('')
-const sortKey = ref<keyof BenchmarkSummary>('profit')
-const sortDir = ref<1 | -1>(-1)
+
+// Per-group sort state — reactive so Vue tracks individual key access
+const groupSortKey = reactive<Record<string, keyof BenchmarkSummary>>({})
+const groupSortDir = reactive<Record<string, 1 | -1>>({})
+
+function getSortKey(tf: string): keyof BenchmarkSummary {
+  return groupSortKey[tf] ?? 'profit'
+}
+function getSortDir(tf: string): 1 | -1 {
+  return groupSortDir[tf] ?? -1
+}
+function toggleSort(tf: string, key: keyof BenchmarkSummary) {
+  if (getSortKey(tf) === key) {
+    groupSortDir[tf] = (getSortDir(tf) === -1 ? 1 : -1) as 1 | -1
+  } else {
+    groupSortKey[tf] = key
+    groupSortDir[tf] = -1
+  }
+}
+function sortIcon(tf: string, key: string) {
+  if (getSortKey(tf) !== key) return '↕'
+  return getSortDir(tf) === -1 ? '↓' : '↑'
+}
+function sortedRows(tf: string, rows: BenchmarkSummary[]): BenchmarkSummary[] {
+  const sk = getSortKey(tf)
+  const sd = getSortDir(tf)
+  return [...rows].sort((a, b) => {
+    const va: any = a[sk]
+    const vb: any = b[sk]
+    if (va == null) return 1
+    if (vb == null) return -1
+    if (va < vb) return -1 * sd
+    if (va > vb) return 1 * sd
+    return 0
+  })
+}
 
 // Canonical timeframe order — unknown TFs fall to the end
 const TF_ORDER = ['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '6h', '8h', '12h', '1d', '3d', '1w']
@@ -63,15 +97,6 @@ const groups = computed(() => {
   const sorted = [...map.entries()].sort(([a], [b]) => tfRank(a) - tfRank(b))
 
   return sorted.map(([tf, rows]) => {
-    const sortedRows = [...rows].sort((a, b) => {
-      const va: any = a[sortKey.value]
-      const vb: any = b[sortKey.value]
-      if (va == null) return 1
-      if (vb == null) return -1
-      if (va < vb) return -1 * sortDir.value
-      if (va > vb) return 1 * sortDir.value
-      return 0
-    })
     // Top 3 by profit within this timeframe group — only positive profit earns a medal
     const byProfit = [...rows]
       .filter(b => b.profit != null && b.profit > 0)
@@ -79,7 +104,7 @@ const groups = computed(() => {
       .slice(0, 3)
     const podium = new Map<string, number>()
     byProfit.forEach((b, i) => podium.set(b.id, i))
-    return { tf, rows: sortedRows, podium }
+    return { tf, rows, podium }
   })
 })
 
@@ -89,14 +114,6 @@ function navigate(id: string) {
   router.go(withBase(`/benchmarks/${id}`))
 }
 
-function toggleSort(key: keyof BenchmarkSummary) {
-  if (sortKey.value === key) {
-    sortDir.value = sortDir.value === -1 ? 1 : -1
-  } else {
-    sortKey.value = key
-    sortDir.value = -1
-  }
-}
 
 function formatDate(d?: string) {
   if (!d) return '—'
@@ -113,10 +130,6 @@ function profitClass(v?: number | null) {
   return v >= 0 ? 'positive' : 'negative'
 }
 
-function sortIcon(key: string) {
-  if (sortKey.value !== key) return '↕'
-  return sortDir.value === -1 ? '↓' : '↑'
-}
 
 function formatPeriod(days: number): string {
   if (!days) return '—'
@@ -211,48 +224,50 @@ function sparklineColor(curve: number[]): string {
         <table class="benchmark-table">
           <thead>
             <tr>
+              <th class="row-num-th">#</th>
               <th class="medal-th"></th>
-              <th class="sortable" @click="toggleSort('strategy')">
-                Strategy <span class="sort-icon">{{ sortIcon('strategy') }}</span>
+              <th class="sortable" @click="toggleSort(group.tf, 'strategy')">
+                Strategy <span class="sort-icon">{{ sortIcon(group.tf, 'strategy') }}</span>
               </th>
-              <th class="sortable" @click="toggleSort('timeframe')">
-                TF <span class="sort-icon">{{ sortIcon('timeframe') }}</span>
+              <th class="sortable" @click="toggleSort(group.tf, 'timeframe')">
+                TF <span class="sort-icon">{{ sortIcon(group.tf, 'timeframe') }}</span>
               </th>
               <th class="trend-th" title="Profit trend across runs of the same strategy &amp; timeframe">Trend</th>
-              <th class="sortable" @click="toggleSort('backtestDays')">
-                Period <span class="sort-icon">{{ sortIcon('backtestDays') }}</span>
+              <th class="sortable" @click="toggleSort(group.tf, 'backtestDays')">
+                Period <span class="sort-icon">{{ sortIcon(group.tf, 'backtestDays') }}</span>
               </th>
-              <th class="sortable" @click="toggleSort('date')">
-                Date <span class="sort-icon">{{ sortIcon('date') }}</span>
+              <th class="sortable" @click="toggleSort(group.tf, 'date')">
+                Date <span class="sort-icon">{{ sortIcon(group.tf, 'date') }}</span>
               </th>
-              <th class="sortable num" @click="toggleSort('profit')">
-                Profit % <span class="sort-icon">{{ sortIcon('profit') }}</span>
+              <th class="sortable num" @click="toggleSort(group.tf, 'profit')">
+                Profit % <span class="sort-icon">{{ sortIcon(group.tf, 'profit') }}</span>
               </th>
-              <th class="sortable num" @click="toggleSort('profitUsdt')">
-                PnL {{ currency }} <span class="sort-icon">{{ sortIcon('profitUsdt') }}</span>
+              <th class="sortable num" @click="toggleSort(group.tf, 'profitUsdt')">
+                PnL {{ currency }} <span class="sort-icon">{{ sortIcon(group.tf, 'profitUsdt') }}</span>
               </th>
-              <th class="sortable num" @click="toggleSort('totalTrades')">
-                Trades <span class="sort-icon">{{ sortIcon('totalTrades') }}</span>
+              <th class="sortable num" @click="toggleSort(group.tf, 'totalTrades')">
+                Trades <span class="sort-icon">{{ sortIcon(group.tf, 'totalTrades') }}</span>
               </th>
-              <th class="sortable num" @click="toggleSort('winRate')">
-                Win Rate <span class="sort-icon">{{ sortIcon('winRate') }}</span>
+              <th class="sortable num" @click="toggleSort(group.tf, 'winRate')">
+                Win Rate <span class="sort-icon">{{ sortIcon(group.tf, 'winRate') }}</span>
               </th>
-              <th class="sortable num" @click="toggleSort('sharpe')">
-                Sharpe <span class="sort-icon">{{ sortIcon('sharpe') }}</span>
+              <th class="sortable num" @click="toggleSort(group.tf, 'sharpe')">
+                Sharpe <span class="sort-icon">{{ sortIcon(group.tf, 'sharpe') }}</span>
               </th>
-              <th class="sortable num" @click="toggleSort('maxDrawdown')">
-                Max DD <span class="sort-icon">{{ sortIcon('maxDrawdown') }}</span>
+              <th class="sortable num" @click="toggleSort(group.tf, 'maxDrawdown')">
+                Max DD <span class="sort-icon">{{ sortIcon(group.tf, 'maxDrawdown') }}</span>
               </th>
               <th class="arrow-th"></th>
             </tr>
           </thead>
           <tbody>
             <tr
-              v-for="b in group.rows"
+              v-for="(b, idx) in sortedRows(group.tf, group.rows)"
               :key="b.id"
               class="benchmark-row"
               @click="navigate(b.id)"
             >
+              <td class="row-num">{{ idx + 1 }}</td>
               <td class="medal-td">
                 <MedalBadge
                   v-if="group.podium.has(b.id)"
@@ -302,7 +317,7 @@ function sparklineColor(curve: number[]): string {
             </tr>
 
             <tr v-if="group.rows.length === 0" class="empty-row">
-              <td colspan="13" class="empty-tf">No runs yet</td>
+              <td colspan="14" class="empty-tf">No runs yet</td>
             </tr>
           </tbody>
         </table>
@@ -498,7 +513,10 @@ function sparklineColor(curve: number[]): string {
   border-right: none;
 }
 
-.benchmark-table th.num { text-align: right; }
+.benchmark-table th.num {
+  text-align: right;
+  min-width: 5.5rem;
+}
 
 .benchmark-table th.sortable { cursor: pointer; }
 
@@ -602,6 +620,28 @@ function sparklineColor(curve: number[]): string {
 .period-cell {
   color: var(--vp-c-text-2);
   white-space: nowrap;
+}
+
+/* ── Row number ──────────────────────────────────────── */
+.row-num-th {
+  width: 1.5rem;
+  text-align: right;
+  padding-right: 0.4rem;
+  color: var(--vp-c-text-3);
+  font-size: 0.72rem;
+}
+.row-num {
+  text-align: right;
+  padding-right: 0.4rem;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.72rem;
+  color: var(--vp-c-text-3);
+  user-select: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .row-num-th, .row-num { display: none; }
 }
 
 /* ── Medal ───────────────────────────────────────────── */
