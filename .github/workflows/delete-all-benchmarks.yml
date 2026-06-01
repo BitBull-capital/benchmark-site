@@ -1,0 +1,39 @@
+name: Delete All Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type DELETE_ALL to confirm deletion of every benchmark file'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify confirmation
+        if: ${{ github.event.inputs.confirmation != 'DELETE_ALL' }}
+        run: |
+          echo "Confirmation input was '${{ github.event.inputs.confirmation }}', expected DELETE_ALL."
+          exit 1
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Delete benchmark files
+        run: |
+          count=$(find benchmarks -maxdepth 1 -type f | wc -l | tr -d ' ')
+          if [ "$count" -eq 0 ]; then
+            echo "No benchmark files found — nothing to delete."
+            exit 0
+          fi
+          echo "Deleting $count benchmark file(s)…"
+          find benchmarks -maxdepth 1 -type f -delete
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A benchmarks/
+          git commit -m "chore: delete all benchmarks [skip ci]"
+          git push
