@@ -77,6 +77,19 @@ interface StrategyData {
   profit_total_short: number
   profit_total_short_abs: number
   trading_mode: string
+  // Periodic breakdown
+  periodic_breakdown?: {
+    month?: Array<{
+      date: string        // "DD/MM/YYYY"
+      date_ts: number
+      profit_abs: number
+      wins: number
+      draws: number
+      losses: number
+      trades: number
+      profit_factor: number
+    }>
+  }
   // Config fields
   pairlist: string[]
   stake_amount: number | string
@@ -144,6 +157,29 @@ const enterTagRows = computed(() =>
 const exitReasonRows = computed(() =>
   exitSort.sort((s.value.exit_reason_summary ?? []).filter(r => r.key !== 'TOTAL' && r.key !== ''))
 )
+
+const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+
+function parseMonthLabel(date: string): string {
+  // date is "DD/MM/YYYY"
+  const parts = date.split('/')
+  if (parts.length !== 3) return date
+  const mo = parseInt(parts[1], 10) - 1
+  const yr = parts[2]
+  return `${MONTH_NAMES[mo] ?? parts[1]} ${yr}`
+}
+
+const monthRows = computed(() => s.value.periodic_breakdown?.month ?? [])
+
+const monthBarMax = computed(() => {
+  const rows = monthRows.value
+  if (!rows.length) return 1
+  return Math.max(...rows.map(r => Math.abs(r.profit_abs)), 1)
+})
+
+function monthBarWidth(profit_abs: number): number {
+  return Math.min(100, Math.round((Math.abs(profit_abs) / monthBarMax.value) * 100))
+}
 
 // ── Long / Short breakdown ────────────────────────────
 function formatMinutes(mins: number): string {
@@ -643,6 +679,48 @@ const runDate = computed(() => {
             <tr>
               <td class="addl-name">Market Change <span class="addl-muted">(buy &amp; hold)</span></td>
               <td class="num mono" :class="valueClass(s.market_change)">{{ pct(s.market_change * 100) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Monthly PnL breakdown ───────────────────────── -->
+    <section v-if="monthRows.length > 0" class="detail-section">
+      <h2 class="section-title">📅 Monthly PnL</h2>
+      <div class="table-wrap">
+        <table class="month-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th class="num">PnL {{ currency }}</th>
+              <th class="num">Trades</th>
+              <th class="num">W / D / L</th>
+              <th class="num">Profit Factor</th>
+              <th class="month-bar-th"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in monthRows" :key="row.date_ts">
+              <td class="mono month-label">{{ parseMonthLabel(row.date) }}</td>
+              <td class="num mono" :class="valueClass(row.profit_abs)">{{ abs(row.profit_abs) }}</td>
+              <td class="num mono">{{ row.trades }}</td>
+              <td class="num mono">
+                <span class="positive">{{ row.wins }}W</span>
+                <span v-if="row.draws" class="addl-muted"> {{ row.draws }}D</span>
+                <span class="addl-sep">/</span>
+                <span class="negative">{{ row.losses }}L</span>
+              </td>
+              <td class="num mono" :class="valueClass(row.profit_factor - 1)">{{ num(row.profit_factor) }}</td>
+              <td class="month-bar-td">
+                <div class="month-bar-wrap">
+                  <div
+                    class="month-bar"
+                    :class="row.profit_abs >= 0 ? 'bar-pos' : 'bar-neg'"
+                    :style="{ width: monthBarWidth(row.profit_abs) + '%' }"
+                  />
+                </div>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -1423,4 +1501,39 @@ const runDate = computed(() => {
   color: var(--vp-c-text-3);
   padding: 1.5rem !important;
 }
+
+/* ── Monthly PnL table ───────────────────────────────── */
+.month-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--vp-c-text-1);
+}
+
+.month-bar-th {
+  width: 120px;
+  min-width: 80px;
+}
+
+.month-bar-td {
+  padding: 0.28rem 0.75rem;
+  width: 120px;
+  min-width: 80px;
+}
+
+.month-bar-wrap {
+  height: 8px;
+  background: var(--vp-c-bg-mute);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.month-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+.bar-pos { background: var(--bd-positive); }
+.bar-neg { background: var(--bd-negative); }
 </style>
