@@ -1,0 +1,76 @@
+name: Delete Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      strategy_name:
+        description: 'Strategy name as shown on the site (e.g. sw_sl2_t20_o3)'
+        required: true
+      timeframe:
+        description: 'Timeframe to delete (choose "all" to delete every timeframe)'
+        required: true
+        type: choice
+        options:
+          - all
+          - 1m
+          - 5m
+          - 15m
+          - 30m
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find and delete benchmarks for strategy
+        env:
+          STRATEGY: ${{ github.event.inputs.strategy_name }}
+          TIMEFRAME: ${{ github.event.inputs.timeframe }}
+        run: |
+          matched=()
+          for meta in benchmarks/*.meta.json; do
+            [ -f "$meta" ] || continue
+            if python3 -c "
+import json, os, sys
+data = json.load(open('$meta'))
+strategy = os.environ['STRATEGY']
+timeframe = os.environ['TIMEFRAME']
+if strategy not in data:
+    sys.exit(1)
+if timeframe != 'all' and data[strategy].get('timeframe') != timeframe:
+    sys.exit(1)
+sys.exit(0)
+            "; then
+              matched+=("${meta%.meta.json}")
+            fi
+          done
+
+          if [ ${#matched[@]} -eq 0 ]; then
+            echo "No benchmarks found for strategy '${STRATEGY}' / timeframe '${TIMEFRAME}'. Aborting."
+            exit 1
+          fi
+
+          echo "Deleting ${#matched[@]} benchmark(s) for strategy '${STRATEGY}' (timeframe: ${TIMEFRAME}):"
+          for base in "${matched[@]}"; do
+            echo "  - $(basename "$base")"
+          done
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          for base in "${matched[@]}"; do
+            git rm --ignore-unmatch "${base}.zip" "${base}.meta.json"
+          done
+
+          if [ "${TIMEFRAME}" = "all" ]; then
+            msg="chore: delete benchmarks for strategy ${STRATEGY}"
+          else
+            msg="chore: delete benchmarks for strategy ${STRATEGY} (${TIMEFRAME})"
+          fi
+          git commit -m "$msg"
+          git push
