@@ -133,12 +133,11 @@ function profitClass(v?: number | null) {
 
 function formatPeriod(days: number): string {
   if (!days) return '—'
-  const y = Math.floor(days / 365)
-  const rem1 = days - y * 365
-  const mo = Math.floor(rem1 / 30)
-  const rem2 = rem1 - mo * 30
-  const w = Math.floor(rem2 / 7)
-  const d = rem2 % 7
+  let rem = days
+  const y = Math.floor(rem / 365); rem -= y * 365
+  const mo = Math.min(11, Math.floor(rem / 30)); rem -= mo * 30
+  const w = Math.floor(rem / 7); rem -= w * 7
+  const d = rem
   const parts: string[] = []
   if (y)  parts.push(`${y}y`)
   if (mo) parts.push(`${mo}m`)
