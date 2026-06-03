@@ -2,3 +2,5 @@
 /docs/.vitepress/cache
 # Vitepress production build output
 /docs/.vitepress/dist
+# Extracted backtest JSONs — generated at build time from benchmarks/*.zip
+/docs/public/benchmarks-data/

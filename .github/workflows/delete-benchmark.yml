@@ -27,6 +27,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: List available strategies
+        run: |
+          echo "Available strategies in benchmarks/:"
+          for meta in benchmarks/*.meta.json; do
+            [ -f "$meta" ] || continue
+            python3 -c "import json; d=json.load(open('$meta')); [print(f'  {k}  ({v.get(\"timeframe\",\"?\")})\t{meta}') for k,v in d.items()]"
+          done
+
       - name: Find and delete benchmarks for strategy
         env:
           STRATEGY: ${{ github.event.inputs.strategy_name }}
@@ -54,7 +62,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           for base in "${matched[@]}"; do
-            git rm --ignore-unmatch "${base}.zip" "${base}.meta.json"
+            id="$(basename "$base")"
+            git rm --ignore-unmatch "${base}.zip" "${base}.meta.json" \
+              "docs/public/benchmarks-data/${id}.json"
           done
 
           if [ "${TIMEFRAME}" = "all" ]; then
