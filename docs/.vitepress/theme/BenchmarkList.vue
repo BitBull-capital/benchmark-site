@@ -133,17 +133,13 @@ function profitClass(v?: number | null) {
 
 function formatPeriod(days: number): string {
   if (!days) return '—'
-  let rem = days
-  const y = Math.floor(rem / 365); rem -= y * 365
-  const mo = Math.min(11, Math.floor(rem / 30)); rem -= mo * 30
-  const w = Math.floor(rem / 7); rem -= w * 7
-  const d = rem
-  const parts: string[] = []
-  if (y)  parts.push(`${y}y`)
-  if (mo) parts.push(`${mo}m`)
-  if (w)  parts.push(`${w}w`)
-  if (d)  parts.push(`${d}d`)
-  return parts.length ? parts.join(' ') : '—'
+  const y  = Math.round(days / 365)
+  const mo = Math.round(days / 30)
+  const w  = Math.round(days / 7)
+  if (y  >= 1) return `${y}y`
+  if (mo >= 1) return `${mo}m`
+  if (w  >= 1) return `${w}w`
+  return `${days}d`
 }
 
 const MEDALS = ['🥇', '🥈', '🥉'] as const
