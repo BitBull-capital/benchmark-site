@@ -3,7 +3,7 @@
     "vitepress": "^1.0.0-rc.40"
   },
   "scripts": {
-    "prepare-data": "mkdir -p docs/public/benchmarks-data && for zip in benchmarks/backtest-result-*.zip; do [ -f \"$zip\" ] || continue; base=\"$(basename \"${zip%.zip}\")\"; echo \"Extracting $base.json...\"; unzip -p \"$zip\" \"${base}.json\" > \"docs/public/benchmarks-data/${base}.json\"; done",
+    "prepare-data": "mkdir -p docs/public/benchmarks-data && for json in docs/public/benchmarks-data/*.json; do [ -f \"$json\" ] || continue; base=$(basename \"${json%.json}\"); [ -f \"benchmarks/${base}.zip\" ] || rm \"$json\"; done && for zip in benchmarks/backtest-result-*.zip; do [ -f \"$zip\" ] || continue; base=\"$(basename \"${zip%.zip}\")\"; echo \"Extracting $base.json...\"; unzip -p \"$zip\" \"${base}.json\" > \"docs/public/benchmarks-data/${base}.json\"; done",
     "docs:dev": "npm run prepare-data && vitepress dev docs",
     "docs:build": "npm run prepare-data && vitepress build docs",
     "docs:preview": "vitepress preview docs"
