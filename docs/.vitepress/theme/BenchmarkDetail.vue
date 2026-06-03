@@ -1336,7 +1336,8 @@ const runDate = computed(() => {
 }
 
 .table-wrap table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 0.82rem;
   margin: 0 !important;
