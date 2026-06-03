@@ -50,7 +50,7 @@ onMounted(async () => {
     ⚠️ Failed to load benchmark data: {{ error }}
   </div>
 
-  <BenchmarkDetail v-else-if="benchmarkData" :data="benchmarkData" :medal="medal" />
+  <BenchmarkDetail v-else-if="benchmarkData" :data="benchmarkData" :medal="medal" :benchmark-id="params.value.id" />
 </div>
 
 <style>

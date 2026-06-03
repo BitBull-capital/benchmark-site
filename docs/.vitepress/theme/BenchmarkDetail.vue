@@ -105,7 +105,7 @@ interface StrategyData {
   minimal_roi: Record<string, number>
 }
 
-const props = defineProps<{ data: StrategyData; medal?: 0 | 1 | 2 }>()
+const props = defineProps<{ data: StrategyData; medal?: 0 | 1 | 2; benchmarkId?: string }>()
 const router = useRouter()
 const { isDark } = useData()
 const { currency, toggle: toggleCurrency, fmtAbs, fmtBalance } = useCurrency()
@@ -520,7 +520,7 @@ const runDate = computed(() => {
           <span class="badge-strategy">{{ s.strategy_name }}</span>
           <a
             class="badge-source-link"
-            :href="`https://github.com/BitBull-capital/benchmarks/blob/main/${s.strategy_name}.py`"
+            :href="`https://github.com/BitBull-capital/benchmarks/blob/main/benchmarks/${props.benchmarkId}/${s.strategy_name}.py`"
             target="_blank"
             rel="noopener noreferrer"
             title="View strategy source on GitHub"
