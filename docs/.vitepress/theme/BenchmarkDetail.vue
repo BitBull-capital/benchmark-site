@@ -701,27 +701,32 @@ const runDate = computed(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in monthRows" :key="row.date_ts">
-              <td class="mono month-label">{{ parseMonthLabel(row.date) }}</td>
-              <td class="num mono" :class="valueClass(row.profit_abs)">{{ abs(row.profit_abs) }}</td>
-              <td class="num mono">{{ row.trades }}</td>
-              <td class="num mono">
-                <span class="positive">{{ row.wins }}W</span>
-                <span v-if="row.draws" class="addl-muted"> {{ row.draws }}D</span>
-                <span class="addl-sep">/</span>
-                <span class="negative">{{ row.losses }}L</span>
-              </td>
-              <td class="num mono" :class="valueClass(row.profit_factor - 1)">{{ num(row.profit_factor) }}</td>
-              <td class="month-bar-td">
-                <div class="month-bar-wrap">
-                  <div
-                    class="month-bar"
-                    :class="row.profit_abs >= 0 ? 'bar-pos' : 'bar-neg'"
-                    :style="{ width: monthBarWidth(row.profit_abs) + '%' }"
-                  />
-                </div>
-              </td>
-            </tr>
+            <template v-for="(row, i) in monthRows" :key="row.date_ts">
+              <tr v-if="i === 0 || row.date.slice(-4) !== monthRows[i-1].date.slice(-4)" class="year-sep-row">
+                <td colspan="6" class="year-sep-cell">{{ row.date.slice(-4) }}</td>
+              </tr>
+              <tr>
+                <td class="mono month-label">{{ MONTH_NAMES[parseInt(row.date.split('/')[1], 10) - 1] }}</td>
+                <td class="num mono" :class="valueClass(row.profit_abs)">{{ abs(row.profit_abs) }}</td>
+                <td class="num mono">{{ row.trades }}</td>
+                <td class="num mono">
+                  <span class="positive">{{ row.wins }}W</span>
+                  <span v-if="row.draws" class="addl-muted"> {{ row.draws }}D</span>
+                  <span class="addl-sep">/</span>
+                  <span class="negative">{{ row.losses }}L</span>
+                </td>
+                <td class="num mono" :class="valueClass(row.profit_factor - 1)">{{ num(row.profit_factor) }}</td>
+                <td class="month-bar-td">
+                  <div class="month-bar-wrap">
+                    <div
+                      class="month-bar"
+                      :class="row.profit_abs >= 0 ? 'bar-pos' : 'bar-neg'"
+                      :style="{ width: monthBarWidth(row.profit_abs) + '%' }"
+                    />
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </table>
       </div>
@@ -1503,6 +1508,19 @@ const runDate = computed(() => {
 }
 
 /* ── Monthly PnL table ───────────────────────────────── */
+.year-sep-row { background: var(--vp-c-bg-mute) !important; }
+
+.year-sep-cell {
+  padding: 0.18rem 0.75rem !important;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vp-c-text-3);
+  font-family: var(--vp-font-family-mono);
+  border-bottom: 1px solid var(--vp-c-border) !important;
+}
+
 .month-label {
   font-size: 0.82rem;
   font-weight: 600;
