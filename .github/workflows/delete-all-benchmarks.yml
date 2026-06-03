@@ -47,10 +47,12 @@ jobs:
 
           git rm -r --ignore-unmatch benchmarks/
 
+          python3 -c "import re; h='| Strategy | Timeframe | Period | Trades | Profit % | Winrate % | Sharpe | Max DD % |\n|----------|-----------|--------|--------|----------|-----------|--------|----------|\n'; txt=open('README.md').read(); txt=re.sub(r'(?<=BENCHMARK_TABLE_START -->\n).*?(?=<!-- BENCHMARK_TABLE_END)', h, txt, flags=re.DOTALL); open('README.md','w').write(txt)"
+          git add README.md
+
           if git diff --cached --quiet; then
             echo "BitBull-capital/benchmarks is already empty — nothing to delete."
           else
             git commit -m "chore: delete all benchmarks"
             git push
           fi
-
