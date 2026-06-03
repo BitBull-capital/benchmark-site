@@ -518,6 +518,13 @@ const runDate = computed(() => {
             :profit="s.profit_total * 100"
           />
           <span class="badge-strategy">{{ s.strategy_name }}</span>
+          <a
+            class="badge-source-link"
+            :href="`https://github.com/BitBull-capital/benchmarks/blob/main/${s.strategy_name}.py`"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="View strategy source on GitHub"
+          >{ source }</a>
           <span class="badge-tf">{{ s.timeframe }}</span>
           <span class="badge-range">{{ s.timerange }}<span v-if="s.backtest_days" class="badge-period"> ({{ formatPeriod(s.backtest_days) }})</span></span>
         </div>
@@ -1135,6 +1142,22 @@ const runDate = computed(() => {
 .badge-period {
   color: var(--vp-c-text-3);
   font-weight: 400;
+}
+
+.badge-source-link {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  background: var(--vp-c-bg-mute);
+  color: var(--vp-c-text-3);
+  border-radius: 5px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.75rem;
+  text-decoration: none;
+  border: 1px solid transparent;
+}
+.badge-source-link:hover {
+  color: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-soft);
 }
 
 .badge-tf,

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       strategy_name:
-        description: 'Strategy name as shown on the site (e.g. sw_sl2_t20_o3)'
+        description: 'Strategy name as shown on the site (e.g. orb, sw_sl2_t20_o3)'
         required: true
       timeframe:
         description: 'Timeframe to delete (choose "all" to delete every timeframe)'
@@ -30,9 +30,16 @@ jobs:
       - name: List available strategies
         run: |
           echo "Available strategies in benchmarks/:"
-          for meta in benchmarks/*.meta.json; do
-            [ -f "$meta" ] || continue
-            python3 -c "import json,sys; d=json.load(open(sys.argv[1])); [print('  '+k+'  ('+v.get('timeframe','?')+')  '+sys.argv[1]) for k,v in d.items()]" "$meta"
+          for zip in benchmarks/backtest-result-*.zip; do
+            [ -f "$zip" ] || continue
+            id="$(basename "${zip%.zip}")"
+            json=$(unzip -p "$zip" "${id}.json" 2>/dev/null) || continue
+            python3 -c "
+import json, sys
+data = json.loads(sys.argv[1])
+for strat in data.get('strategy', {}).values():
+    print('  ' + strat.get('strategy_name','?') + '  (' + strat.get('timeframe','?') + ')  ' + sys.argv[2])
+" "$json" "$zip"
           done
 
       - name: Find and delete benchmarks for strategy
@@ -41,21 +48,37 @@ jobs:
           TIMEFRAME: ${{ github.event.inputs.timeframe }}
         run: |
           matched=()
-          for meta in benchmarks/*.meta.json; do
-            [ -f "$meta" ] || continue
-            if python3 -c "import json,os,sys; d=json.load(open(sys.argv[1])); s=os.environ['STRATEGY']; tf=os.environ['TIMEFRAME']; sys.exit(0 if s in d and (tf=='all' or d[s].get('timeframe')==tf) else 1)" "$meta"; then
-              matched+=("${meta%.meta.json}")
+          for zip in benchmarks/backtest-result-*.zip; do
+            [ -f "$zip" ] || continue
+            id="$(basename "${zip%.zip}")"
+            json=$(unzip -p "$zip" "${id}.json" 2>/dev/null) || continue
+            if python3 -c "
+import json, os, sys
+data = json.loads(sys.argv[1])
+s = os.environ['STRATEGY']
+tf = os.environ['TIMEFRAME']
+for strat in data.get('strategy', {}).values():
+    if strat.get('strategy_name') == s and (tf == 'all' or strat.get('timeframe') == tf):
+        sys.exit(0)
+sys.exit(1)
+" "$json"; then
+              matched+=("benchmarks/$id")
             fi
           done
 
           if [ ${#matched[@]} -eq 0 ]; then
-            echo "No benchmarks found for strategy '${STRATEGY}' / timeframe '${TIMEFRAME}'. Aborting."
-            exit 1
+            echo "No benchmarks found for strategy '${STRATEGY}' / timeframe '${TIMEFRAME}' — nothing to delete."
+            exit 0
           fi
 
           echo "Deleting ${#matched[@]} benchmark(s) for strategy '${STRATEGY}' (timeframe: ${TIMEFRAME}):"
           for base in "${matched[@]}"; do
             echo "  - $(basename "$base")"
+          done
+
+          # Save IDs for the cross-repo step (before git rm removes the files)
+          for base in "${matched[@]}"; do
+            echo "$(basename "$base")" >> /tmp/matched_ids.txt
           done
 
           git config user.name  "github-actions[bot]"
@@ -75,7 +98,38 @@ jobs:
           git commit -m "$msg"
           git push
 
-      - name: Trigger deploy
+      - name: Delete from source benchmarks repo
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
-        run: gh workflow run deploy.yml --ref master
+          STRATEGY: ${{ github.event.inputs.strategy_name }}
+          TIMEFRAME: ${{ github.event.inputs.timeframe }}
+        run: |
+          if [ ! -f /tmp/matched_ids.txt ]; then
+            echo "No matches found earlier — skipping cross-repo deletion."
+            exit 0
+          fi
+
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/BitBull-capital/benchmarks.git" /tmp/benchmarks-src
+          cd /tmp/benchmarks-src
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          while IFS= read -r id; do
+            # Try both root and benchmarks/ subdirectory to handle either layout
+            git rm --ignore-unmatch \
+              "${id}.zip" "${id}.meta.json" \
+              "benchmarks/${id}.zip" "benchmarks/${id}.meta.json"
+          done < /tmp/matched_ids.txt
+
+          if git diff --cached --quiet; then
+            echo "No matching files found in BitBull-capital/benchmarks — skipping."
+          else
+            if [ "${TIMEFRAME}" = "all" ]; then
+              msg="chore: delete benchmarks for strategy ${STRATEGY}"
+            else
+              msg="chore: delete benchmarks for strategy ${STRATEGY} (${TIMEFRAME})"
+            fi
+            git commit -m "$msg"
+            git push
+          fi
