@@ -32,7 +32,12 @@ jobs:
           echo "Available strategies in benchmarks/:"
           for meta in benchmarks/*.meta.json; do
             [ -f "$meta" ] || continue
-            python3 -c "import json; d=json.load(open('$meta')); [print(f'  {k}  ({v.get(\"timeframe\",\"?\")})\t{meta}') for k,v in d.items()]"
+            python3 -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+for k, v in d.items():
+    print('  ' + k + '  (' + v.get('timeframe', '?') + ')  ' + sys.argv[1])
+" "$meta"
           done
 
       - name: Find and delete benchmarks for strategy
@@ -43,7 +48,7 @@ jobs:
           matched=()
           for meta in benchmarks/*.meta.json; do
             [ -f "$meta" ] || continue
-            if python3 -c "import json,os,sys; d=json.load(open('$meta')); s=os.environ['STRATEGY']; tf=os.environ['TIMEFRAME']; sys.exit(0 if s in d and (tf=='all' or d[s].get('timeframe')==tf) else 1)"; then
+            if python3 -c "import json,os,sys; d=json.load(open(sys.argv[1])); s=os.environ['STRATEGY']; tf=os.environ['TIMEFRAME']; sys.exit(0 if s in d and (tf=='all' or d[s].get('timeframe')==tf) else 1)" "$meta"; then
               matched+=("${meta%.meta.json}")
             fi
           done
