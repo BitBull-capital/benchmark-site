@@ -34,3 +34,8 @@ jobs:
           fi
           git commit -m "chore: delete all benchmarks"
           git push
+
+      - name: Trigger deploy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy.yml --ref master

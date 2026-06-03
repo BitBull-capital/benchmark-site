@@ -64,3 +64,8 @@ jobs:
           fi
           git commit -m "$msg"
           git push
+
+      - name: Trigger deploy
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy.yml --ref master
