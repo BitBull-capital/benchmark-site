@@ -142,6 +142,30 @@ function formatPeriod(days: number): string {
   return `${days}d`
 }
 
+// ── Strategy comparison selection ────────────────────
+const selection = ref<string[]>([])
+
+function toggleSelect(id: string, e: Event) {
+  e.stopPropagation()
+  const i = selection.value.indexOf(id)
+  if (i >= 0) {
+    selection.value.splice(i, 1)
+  } else if (selection.value.length < 2) {
+    selection.value.push(id)
+  } else {
+    selection.value = [selection.value[1], id]
+  }
+}
+
+function isSelected(id: string) { return selection.value.includes(id) }
+
+function compareSelected() {
+  if (selection.value.length === 2) {
+    const url = withBase('/benchmarks/compare') + `?a=${selection.value[0]}&b=${selection.value[1]}`
+    window.location.href = url
+  }
+}
+
 const MEDALS = ['🥇', '🥈', '🥉'] as const
 
 // ── Equity sparklines ─────────────────────────────────
@@ -177,6 +201,11 @@ function sparklineColor(curve: number[]): string {
           placeholder="Search strategy…"
           class="search-input"
         />
+        <button
+          v-if="selection.length === 2"
+          class="compare-btn"
+          @click="compareSelected"
+        >Compare (2) →</button>
         <button class="currency-toggle" @click="toggleCurrency" :title="`Switch to ${currency === 'USD' ? 'DKK' : 'USD'}`">
           <span :class="{ active: currency === 'USD' }">USD</span>
           <span class="cur-sep">/</span>
@@ -219,6 +248,7 @@ function sparklineColor(curve: number[]): string {
         <table class="benchmark-table">
           <thead>
             <tr>
+              <th class="check-th"></th>
               <th class="medal-th">#</th>
               <th class="sortable" @click="toggleSort(group.tf, 'strategy')">
                 Strategy <span class="sort-icon">{{ sortIcon(group.tf, 'strategy') }}</span>
@@ -261,6 +291,14 @@ function sparklineColor(curve: number[]): string {
               class="benchmark-row"
               @click="navigate(b.id)"
             >
+              <td class="check-td" @click.stop>
+                <input
+                  type="checkbox"
+                  class="row-check"
+                  :checked="isSelected(b.id)"
+                  @change="toggleSelect(b.id, $event)"
+                />
+              </td>
               <td class="medal-td">
                 <MedalBadge
                   v-if="group.podium.has(b.id)"
@@ -311,7 +349,7 @@ function sparklineColor(curve: number[]): string {
             </tr>
 
             <tr v-if="group.rows.length === 0" class="empty-row">
-              <td colspan="13" class="empty-tf">No runs yet</td>
+              <td colspan="14" class="empty-tf">No runs yet</td>
             </tr>
           </tbody>
         </table>
@@ -617,6 +655,30 @@ function sparklineColor(curve: number[]): string {
 }
 
 /* ── Medal / row-number (shared column) ──────────────── */
+.compare-btn {
+  padding: 0.3rem 0.85rem;
+  border: 1px solid var(--vp-c-brand-1);
+  border-radius: 6px;
+  background: var(--vp-c-brand-soft);
+  color: var(--vp-c-brand-1);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.compare-btn:hover { background: var(--vp-c-brand-1); color: #fff; }
+
+.check-th { width: 2rem; padding: 0 0.4rem !important; }
+.check-td { width: 2rem; padding: 0 0.4rem !important; text-align: center; }
+
+.row-check {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+  accent-color: var(--vp-c-brand-1);
+}
+
 .medal-th {
   width: 2rem;
   padding: 0 0.5rem;

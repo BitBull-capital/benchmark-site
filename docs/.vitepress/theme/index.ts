@@ -3,6 +3,7 @@ import type { App } from 'vue'
 import BenchmarkList from './BenchmarkList.vue'
 import BenchmarkMeta from './BenchmarkMeta.vue'
 import BenchmarkDetail from './BenchmarkDetail.vue'
+import BenchmarkCompare from './BenchmarkCompare.vue'
 import MedalBadge from './MedalBadge.vue'
 import CoinIcon from './CoinIcon.vue'
 import PairSymbol from './PairSymbol.vue'
@@ -14,6 +15,7 @@ export default {
     app.component('BenchmarkList', BenchmarkList)
     app.component('BenchmarkMeta', BenchmarkMeta)
     app.component('BenchmarkDetail', BenchmarkDetail)
+    app.component('BenchmarkCompare', BenchmarkCompare)
     app.component('MedalBadge', MedalBadge)
     app.component('CoinIcon', CoinIcon)
     app.component('PairSymbol', PairSymbol)

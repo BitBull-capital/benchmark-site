@@ -171,6 +171,15 @@ function parseMonthLabel(date: string): string {
 
 const monthRows = computed(() => s.value.periodic_breakdown?.month ?? [])
 
+const monthYearOrder = computed(() => {
+  const seen: string[] = []
+  for (const r of monthRows.value) {
+    const yr = r.date.slice(-4)
+    if (!seen.includes(yr)) seen.push(yr)
+  }
+  return seen
+})
+
 const monthBarMax = computed(() => {
   const rows = monthRows.value
   if (!rows.length) return 1
@@ -698,12 +707,8 @@ const runDate = computed(() => {
             </tr>
           </thead>
           <tbody>
-            <template v-for="(row, i) in monthRows" :key="row.date_ts">
-              <tr v-if="i === 0 || row.date.slice(-4) !== monthRows[i-1].date.slice(-4)" class="year-sep-row">
-                <td colspan="6" class="year-sep-cell">{{ row.date.slice(-4) }}</td>
-              </tr>
-              <tr>
-                <td class="mono month-label">{{ MONTH_NAMES[parseInt(row.date.split('/')[1], 10) - 1] }}</td>
+            <tr v-for="row in monthRows" :key="row.date_ts">
+                <td class="mono month-label">{{ MONTH_NAMES[parseInt(row.date.split('/')[1], 10) - 1] }} <span class="month-year-tag" :class="`year-color-${monthYearOrder.indexOf(row.date.slice(-4)) % 4}`">{{ row.date.slice(-4) }}</span></td>
                 <td class="num mono" :class="valueClass(row.profit_abs)">{{ abs(row.profit_abs) }}</td>
                 <td class="num mono">{{ row.trades }}</td>
                 <td class="num mono">
@@ -723,7 +728,6 @@ const runDate = computed(() => {
                   </div>
                 </td>
               </tr>
-            </template>
           </tbody>
         </table>
       </div>
@@ -1505,18 +1509,15 @@ const runDate = computed(() => {
 }
 
 /* ── Monthly PnL table ───────────────────────────────── */
-.year-sep-row { background: var(--vp-c-bg-mute) !important; }
-
-.year-sep-cell {
-  padding: 0.18rem 0.75rem !important;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--vp-c-text-3);
-  font-family: var(--vp-font-family-mono);
-  border-bottom: 1px solid var(--vp-c-border) !important;
+.month-year-tag {
+  font-size: 0.68rem;
+  font-weight: 600;
+  margin-left: 0.3rem;
 }
+.year-color-0 { color: #A0ABD9; }
+.year-color-1 { color: #A0C9AB; }
+.year-color-2 { color: #D9B8A0; }
+.year-color-3 { color: #C4A0D9; }
 
 .month-label {
   font-size: 0.82rem;

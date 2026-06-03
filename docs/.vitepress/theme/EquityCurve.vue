@@ -12,13 +12,25 @@ interface Trade {
 const props = defineProps<{
   trades: Trade[]
   startingBalance: number
+  crossTs?: number | null
 }>()
+
+const emit = defineEmits<{ 'hover-ts': [ts: number | null] }>()
 
 const W = 600, H = 110
 const P = { t: 14, r: 12, b: 8, l: 12 }
 
 const svgEl = ref<SVGSVGElement | null>(null)
 const hoverSvgX = ref<number | null>(null)
+
+// Use local position if hovering, else map the shared timestamp to this chart's x axis
+const effectiveHoverSvgX = computed(() => {
+  if (hoverSvgX.value !== null) return hoverSvgX.value
+  const c = chart.value
+  if (!c || props.crossTs == null) return null
+  if (props.crossTs < c.tsMin || props.crossTs > c.tsMax) return null
+  return P.l + ((props.crossTs - c.tsMin) / (c.tsMax - c.tsMin || 1)) * c.gW
+})
 
 const { convert, currency } = useCurrency()
 const { isDark } = useData()
@@ -147,17 +159,19 @@ function handleMouseMove(e: MouseEvent) {
   pt.x = e.clientX
   pt.y = e.clientY
   const { x: svgX } = pt.matrixTransform(svgEl.value.getScreenCTM()!.inverse())
-  if (svgX < P.l || svgX > P.l + c.gW) { hoverSvgX.value = null; return }
+  if (svgX < P.l || svgX > P.l + c.gW) { hoverSvgX.value = null; emit('hover-ts', null); return }
   hoverSvgX.value = svgX
+  emit('hover-ts', c.tsMin + ((svgX - P.l) / c.gW) * (c.tsMax - c.tsMin))
 }
-function handleMouseLeave() { hoverSvgX.value = null }
+function handleMouseLeave() { hoverSvgX.value = null; emit('hover-ts', null) }
 
 // ── Hovered point ──────────────────────────────────────────────────────────
 const hoverPt = computed(() => {
   const c = chart.value
-  if (hoverSvgX.value === null || !c) return null
+  const svgX = effectiveHoverSvgX.value
+  if (svgX === null || !c) return null
 
-  const frac = (hoverSvgX.value - P.l) / c.gW
+  const frac = (svgX - P.l) / c.gW
   const ts   = c.tsMin + frac * (c.tsMax - c.tsMin)
 
   let i0 = 0
@@ -181,7 +195,7 @@ const hoverPt = computed(() => {
   const profitable = interpBal >= props.startingBalance
 
   return {
-    x: hoverSvgX.value,
+    x: svgX,
     y: c.toY(interpBal),
     profitable,
     balLabel:  fmtBal(nearest.bal),
@@ -276,7 +290,7 @@ const hoverPt = computed(() => {
 
       <!-- Static end-dot -->
       <circle
-        v-if="hoverSvgX === null"
+        v-if="effectiveHoverSvgX === null"
         :cx="chart.dotX" :cy="chart.dotY" r="2"
         :class="chart.profitable ? 'dot-up' : 'dot-dn'"
       />
