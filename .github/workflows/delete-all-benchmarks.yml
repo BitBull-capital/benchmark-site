@@ -45,8 +45,7 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          # Remove everything except .git (wipe all committed files)
-          git rm -r --ignore-unmatch .
+          git rm -r --ignore-unmatch benchmarks/
 
           if git diff --cached --quiet; then
             echo "BitBull-capital/benchmarks is already empty — nothing to delete."
