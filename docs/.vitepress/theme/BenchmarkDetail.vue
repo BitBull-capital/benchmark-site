@@ -248,6 +248,7 @@ function pct(v: number, decimals = 2) {
 
 function num(v: number, decimals = 2) {
   if (v === undefined || v === null) return '—'
+  if (!isFinite(v)) return '∞'
   return v.toFixed(decimals)
 }
 

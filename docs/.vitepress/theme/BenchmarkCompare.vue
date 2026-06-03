@@ -79,6 +79,7 @@ function pct(v: number, d = 2) {
 }
 function num(v: number, d = 2) {
   if (v == null) return '—'
+  if (!isFinite(v)) return '∞'
   return v.toFixed(d)
 }
 function pc(v: number) { return pct(v * 100) }
