@@ -102,6 +102,41 @@ function formatDuration(s?: string): string {
   return p.length ? p.join(' ') : '< 1m'
 }
 
+// ── Grade scoring ─────────────────────────────────────
+const GRADE_ANCHORS = { sharpe: { lower: 0.5, upper: 2.5 }, profit: { lower: 0.0, upper: 0.5 }, drawdown: { lower: 0.25, upper: 0.05 } }
+const GRADE_WEIGHTS = { sharpe: 0.40, profit: 0.30, drawdown: 0.30 }
+
+function gradeNorm(v: number, lo: number, hi: number, inv: boolean): number {
+  if (inv) { const c = Math.max(hi, Math.min(lo, v)); return ((lo - c) / (lo - hi)) * 100 }
+  const c = Math.max(lo, Math.min(hi, v)); return ((c - lo) / (hi - lo)) * 100
+}
+
+function calcGrade(d: StrategyData): { score: number; grade: string } {
+  const trades = d.total_trades ?? 0
+  const dd     = d.max_drawdown_account ?? 0
+  if (trades < 30 || dd > 0.50) return { score: 0, grade: 'F' }
+  const s = gradeNorm(d.sharpe ?? 0, GRADE_ANCHORS.sharpe.lower, GRADE_ANCHORS.sharpe.upper, false)
+  const p = gradeNorm(d.profit_total ?? 0, GRADE_ANCHORS.profit.lower, GRADE_ANCHORS.profit.upper, false)
+  const dv = gradeNorm(dd, GRADE_ANCHORS.drawdown.lower, GRADE_ANCHORS.drawdown.upper, true)
+  const score = +(s * GRADE_WEIGHTS.sharpe + p * GRADE_WEIGHTS.profit + dv * GRADE_WEIGHTS.drawdown).toFixed(1)
+  let grade = 'E'
+  if (score >= 90) grade = 'S+'
+  else if (score >= 80) grade = 'S'
+  else if (score >= 65) grade = 'A'
+  else if (score >= 50) grade = 'B'
+  else if (score >= 35) grade = 'C'
+  else if (score >= 20) grade = 'D'
+  return { score, grade }
+}
+
+const GRADE_CLASS_MAP: Record<string, string> = {
+  'S+': 'g-splus', 'S': 'g-s', 'A': 'g-a', 'B': 'g-b', 'C': 'g-c', 'D': 'g-d', 'E': 'g-e', 'F': 'g-f',
+}
+function gradeBadgeClass(grade: string): string { return GRADE_CLASS_MAP[grade] ?? '' }
+
+const gradeA = computed(() => calcGrade(props.dataA))
+const gradeB = computed(() => calcGrade(props.dataB))
+
 // ── Metrics ───────────────────────────────────────────
 type Winner = 'a' | 'b' | null
 
@@ -134,11 +169,15 @@ interface MetricRow {
   valA: string
   valB: string
   winner: Winner
+  isGrade?: boolean
+  scoreA?: number
+  scoreB?: number
 }
 
 const metrics = computed<MetricRow[]>(() => {
   const a = props.dataA, b = props.dataB
   return [
+    { label: 'Grade', valA: gradeA.value.grade, valB: gradeB.value.grade, scoreA: gradeA.value.score, scoreB: gradeB.value.score, winner: winner(gradeA.value.score, gradeB.value.score, true), isGrade: true },
     { label: 'Total Profit',   valA: pc(a.profit_total),             valB: pc(b.profit_total),             subA: fmtAbs(a.profit_total_abs), subB: fmtAbs(b.profit_total_abs), winner: winner(a.profit_total, b.profit_total, true) },
     { label: 'CAGR',           valA: pc(a.cagr),                     valB: pc(b.cagr),                     winner: winner(a.cagr, b.cagr, true) },
     { label: 'Win Rate',       valA: (a.winrate*100).toFixed(1)+'%', valB: (b.winrate*100).toFixed(1)+'%', subA: `${a.wins}W / ${a.losses}L`, subB: `${b.wins}W / ${b.losses}L`, winner: winner(a.winrate, b.winrate, true) },
@@ -297,12 +336,24 @@ function monthPnlCls(mine: MonthRow | null, other: MonthRow | null): string {
             <tr v-for="m in metrics" :key="m.label">
               <td class="cmp-metric-name">{{ m.label }}</td>
               <td class="cmp-val mono" :class="{ winner: m.winner === 'a', loser: m.winner === 'b' }">
-                <span class="cmp-primary">{{ m.valA }}</span>
-                <span v-if="m.subA" class="cmp-sub">{{ m.subA }}</span>
+                <template v-if="m.isGrade">
+                  <span class="grade-badge" :class="gradeBadgeClass(m.valA)">{{ m.valA }}</span>
+                  <span class="cmp-sub">{{ m.scoreA }} / 100</span>
+                </template>
+                <template v-else>
+                  <span class="cmp-primary">{{ m.valA }}</span>
+                  <span v-if="m.subA" class="cmp-sub">{{ m.subA }}</span>
+                </template>
               </td>
               <td class="cmp-val mono cmp-div" :class="{ winner: m.winner === 'b', loser: m.winner === 'a' }">
-                <span class="cmp-primary">{{ m.valB }}</span>
-                <span v-if="m.subB" class="cmp-sub">{{ m.subB }}</span>
+                <template v-if="m.isGrade">
+                  <span class="grade-badge" :class="gradeBadgeClass(m.valB)">{{ m.valB }}</span>
+                  <span class="cmp-sub">{{ m.scoreB }} / 100</span>
+                </template>
+                <template v-else>
+                  <span class="cmp-primary">{{ m.valB }}</span>
+                  <span v-if="m.subB" class="cmp-sub">{{ m.subB }}</span>
+                </template>
               </td>
             </tr>
           </tbody>
@@ -729,4 +780,24 @@ function monthPnlCls(mine: MonthRow | null, other: MonthRow | null): string {
 .year-color-1 { color: #A0C9AB; }
 .year-color-2 { color: #D9B8A0; }
 .year-color-3 { color: #C4A0D9; }
+
+/* ── Grade badge ─────────────────────────────────────── */
+.grade-badge {
+  display: inline-block;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: var(--vp-c-bg-mute);
+  color: var(--vp-c-text-2);
+}
+.grade-badge.g-splus { color: #FF7F7F; background: rgba(255,127,127,0.12); }
+.grade-badge.g-s     { color: #FEBF7E; background: rgba(254,191,126,0.12); }
+.grade-badge.g-a     { color: #80FF80; background: rgba(128,255,128,0.12); }
+.grade-badge.g-b     { color: #C0FF7E; background: rgba(192,255,126,0.12); }
+.grade-badge.g-c     { color: #FFFF80; background: rgba(255,255,128,0.12); }
+.grade-badge.g-d     { color: #E0E0A0; background: rgba(224,224,160,0.12); }
+.grade-badge.g-e     { color: #CFCFCF; background: rgba(207,207,207,0.12); }
+.grade-badge.g-f     { color: #858585; background: rgba(133,133,133,0.12); }
 </style>

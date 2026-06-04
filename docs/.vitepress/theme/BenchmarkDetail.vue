@@ -376,6 +376,94 @@ function exitBadgeClass(key: string, winrate: number) {
   return ''
 }
 
+// ── Grade breakdown ───────────────────────────────────
+const GRADE_ANCHORS = {
+  sharpe:   { lower: 0.5, upper: 2.5 },
+  profit:   { lower: 0.0, upper: 0.5 },
+  drawdown: { lower: 0.25, upper: 0.05 },
+}
+const GRADE_WEIGHTS = { sharpe: 0.40, profit: 0.30, drawdown: 0.30 }
+const GRADE_DEAL_BREAKERS = { minTrades: 30, maxDrawdown: 0.50 }
+
+function gradeNormalize(value: number, lower: number, upper: number, inverse: boolean): number {
+  if (inverse) {
+    const clamped = Math.max(upper, Math.min(lower, value))
+    return ((lower - clamped) / (lower - upper)) * 100
+  }
+  const clamped = Math.max(lower, Math.min(upper, value))
+  return ((clamped - lower) / (upper - lower)) * 100
+}
+
+function gradeFromScore(score: number): string {
+  if (score >= 90) return 'S+'
+  if (score >= 80) return 'S'
+  if (score >= 65) return 'A'
+  if (score >= 50) return 'B'
+  if (score >= 35) return 'C'
+  if (score >= 20) return 'D'
+  return 'E'
+}
+
+const GRADE_CLASS_MAP: Record<string, string> = {
+  'S+': 'g-splus', 'S': 'g-s', 'A': 'g-a',
+  'B': 'g-b', 'C': 'g-c', 'D': 'g-d', 'E': 'g-e', 'F': 'g-f',
+}
+function gradeBadgeClass(grade: string): string { return GRADE_CLASS_MAP[grade] ?? '' }
+
+const gradeBreakdown = computed(() => {
+  const dd     = s.value.max_drawdown_account ?? 0
+  const trades = s.value.total_trades ?? 0
+  const profit = s.value.profit_total ?? 0
+  const sharpe = s.value.sharpe ?? 0
+
+  const tradePassed = trades >= GRADE_DEAL_BREAKERS.minTrades
+  const ddPassed    = dd <= GRADE_DEAL_BREAKERS.maxDrawdown
+  const passed      = tradePassed && ddPassed
+
+  const sharpeScore   = gradeNormalize(sharpe, GRADE_ANCHORS.sharpe.lower,   GRADE_ANCHORS.sharpe.upper,   false)
+  const profitScore   = gradeNormalize(profit, GRADE_ANCHORS.profit.lower,   GRADE_ANCHORS.profit.upper,   false)
+  const ddScore       = gradeNormalize(dd,     GRADE_ANCHORS.drawdown.lower, GRADE_ANCHORS.drawdown.upper, true)
+
+  const sharpeContrib  = sharpeScore  * GRADE_WEIGHTS.sharpe
+  const profitContrib  = profitScore  * GRADE_WEIGHTS.profit
+  const ddContrib      = ddScore      * GRADE_WEIGHTS.drawdown
+  const totalScore     = passed ? +(sharpeContrib + profitContrib + ddContrib).toFixed(1) : 0
+
+  return {
+    passed,
+    tradePassed,
+    ddPassed,
+    rows: [
+      {
+        metric: 'Sharpe',
+        value: sharpe.toFixed(2),
+        anchors: `${GRADE_ANCHORS.sharpe.lower} → ${GRADE_ANCHORS.sharpe.upper}`,
+        score:  +sharpeScore.toFixed(1),
+        weight: '40%',
+        contrib: +sharpeContrib.toFixed(1),
+      },
+      {
+        metric: 'Profit',
+        value: (profit * 100).toFixed(2) + '%',
+        anchors: `${(GRADE_ANCHORS.profit.lower * 100).toFixed(0)}% → ${(GRADE_ANCHORS.profit.upper * 100).toFixed(0)}%`,
+        score:  +profitScore.toFixed(1),
+        weight: '30%',
+        contrib: +profitContrib.toFixed(1),
+      },
+      {
+        metric: 'Max DD',
+        value: (dd * 100).toFixed(2) + '%',
+        anchors: `≤ ${(GRADE_ANCHORS.drawdown.lower * 100).toFixed(0)}% → ${(GRADE_ANCHORS.drawdown.upper * 100).toFixed(0)}%`,
+        score:  +ddScore.toFixed(1),
+        weight: '30%',
+        contrib: +ddContrib.toFixed(1),
+      },
+    ],
+    totalScore,
+    grade: passed ? gradeFromScore(totalScore) : 'F',
+  }
+})
+
 const showConfig = ref(false)
 
 const configJson = computed(() => {
@@ -646,6 +734,73 @@ const runDate = computed(() => {
         </table>
       </div>
     </div>
+
+    <!-- ── Grade breakdown ──────────────────────────────── -->
+    <section class="detail-section">
+      <div class="grade-section-header">
+        <h2 class="section-title" style="margin-bottom:0">Grade</h2>
+        <span class="grade-result-badge" :class="gradeBadgeClass(gradeBreakdown.grade)">
+          {{ gradeBreakdown.grade }}
+        </span>
+        <span v-if="gradeBreakdown.passed" class="grade-total-score-pill">
+          {{ gradeBreakdown.totalScore }} / 100
+        </span>
+      </div>
+
+      <!-- Deal breaker checks -->
+      <div class="db-row">
+        <span class="db-chip" :class="gradeBreakdown.tradePassed ? 'db-pass' : 'db-fail'">
+          <span class="db-icon">{{ gradeBreakdown.tradePassed ? '✓' : '✗' }}</span>
+          Trades ≥ {{ 30 }}
+          <span class="db-actual">({{ s.total_trades }})</span>
+        </span>
+        <span class="db-chip" :class="gradeBreakdown.ddPassed ? 'db-pass' : 'db-fail'">
+          <span class="db-icon">{{ gradeBreakdown.ddPassed ? '✓' : '✗' }}</span>
+          Max DD ≤ 50%
+          <span class="db-actual">({{ (s.max_drawdown_account * 100).toFixed(1) }}%)</span>
+        </span>
+        <span v-if="!gradeBreakdown.passed" class="db-fail-note">Deal breaker triggered — grade F</span>
+      </div>
+
+      <!-- Score breakdown table -->
+      <div v-if="gradeBreakdown.passed" class="table-wrap">
+        <table class="grade-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th class="num">Raw Value</th>
+              <th>Anchors (worst → best)</th>
+              <th class="num">Score / 100</th>
+              <th class="num">Weight</th>
+              <th class="num">Contribution</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in gradeBreakdown.rows" :key="row.metric">
+              <td class="gt-metric">{{ row.metric }}</td>
+              <td class="num mono">{{ row.value }}</td>
+              <td class="gt-anchors mono">{{ row.anchors }}</td>
+              <td class="num">
+                <div class="gt-score-cell">
+                  <div class="score-bar-wrap">
+                    <div class="score-bar" :style="{ width: row.score + '%' }" />
+                  </div>
+                  <span class="mono gt-score-num">{{ row.score }}</span>
+                </div>
+              </td>
+              <td class="num mono">{{ row.weight }}</td>
+              <td class="num mono gt-contrib">{{ row.contrib }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr class="gt-total-row">
+              <td colspan="5" class="gt-total-label">Total score</td>
+              <td class="num mono gt-total-value">{{ gradeBreakdown.totalScore }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
 
     <!-- ── Additional statistics ────────────────────────── -->
     <section class="detail-section">
@@ -1585,4 +1740,188 @@ const runDate = computed(() => {
 
 .bar-pos { background: var(--bd-positive); }
 .bar-neg { background: var(--bd-negative); }
+
+/* ── Grade section ───────────────────────────────────── */
+.grade-section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.grade-result-badge {
+  display: inline-block;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: var(--vp-c-bg-mute);
+  color: var(--vp-c-text-2);
+}
+
+.grade-result-badge.g-splus { color: #FF7F7F; background: rgba(255,127,127,0.12); }
+.grade-result-badge.g-s     { color: #FEBF7E; background: rgba(254,191,126,0.12); }
+.grade-result-badge.g-a     { color: #80FF80; background: rgba(128,255,128,0.12); }
+.grade-result-badge.g-b     { color: #C0FF7E; background: rgba(192,255,126,0.12); }
+.grade-result-badge.g-c     { color: #FFFF80; background: rgba(255,255,128,0.12); }
+.grade-result-badge.g-d     { color: #E0E0A0; background: rgba(224,224,160,0.12); }
+.grade-result-badge.g-e     { color: #CFCFCF; background: rgba(207,207,207,0.12); }
+.grade-result-badge.g-f     { color: #858585; background: rgba(133,133,133,0.12); }
+
+.grade-total-score-pill {
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.8rem;
+  color: var(--vp-c-text-3);
+}
+
+/* Deal breaker chips */
+.db-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.db-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  font-family: var(--vp-font-family-mono);
+  border: 1px solid transparent;
+}
+
+.db-chip.db-pass {
+  background: rgba(22, 163, 74, 0.08);
+  color: var(--bd-tier-good);
+  border-color: rgba(22, 163, 74, 0.2);
+}
+
+.db-chip.db-fail {
+  background: rgba(220, 38, 38, 0.08);
+  color: var(--bd-tier-bad);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+.db-icon { font-weight: 700; }
+
+.db-actual {
+  opacity: 0.7;
+  margin-left: 0.1rem;
+}
+
+.db-fail-note {
+  font-size: 0.78rem;
+  color: var(--bd-tier-bad);
+  font-style: italic;
+}
+
+/* Score breakdown table */
+.grade-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin: 0 !important;
+}
+
+.grade-table thead tr {
+  background: var(--vp-c-bg-soft);
+  border-bottom: 2px solid var(--vp-c-border);
+}
+
+.grade-table th {
+  padding: 0.3rem 0.85rem;
+  text-align: left;
+  font-weight: 600;
+  color: var(--vp-c-text-2);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.grade-table th.num { text-align: right; }
+
+.grade-table tr { border-bottom: 1px solid var(--vp-c-divider); }
+.grade-table tbody tr:last-child { border-bottom: none; }
+.grade-table tbody tr:hover { background: var(--vp-c-bg-soft); }
+
+.grade-table td {
+  padding: 0.32rem 0.85rem;
+  vertical-align: middle;
+  white-space: nowrap;
+  color: var(--vp-c-text-1);
+}
+
+.grade-table td.num { text-align: right; }
+
+.gt-metric {
+  font-weight: 600;
+  min-width: 6rem;
+}
+
+.gt-anchors {
+  color: var(--vp-c-text-3);
+  font-size: 0.78rem;
+}
+
+.gt-score-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.score-bar-wrap {
+  width: 60px;
+  height: 6px;
+  background: var(--vp-c-bg-mute);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.score-bar {
+  height: 100%;
+  background: var(--vp-c-brand-1);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+.gt-score-num {
+  width: 2.5rem;
+  text-align: right;
+}
+
+.gt-contrib {
+  font-weight: 600;
+}
+
+/* Total row in tfoot */
+.gt-total-row {
+  background: var(--vp-c-bg-soft) !important;
+  border-top: 2px solid var(--vp-c-border) !important;
+}
+
+.gt-total-label {
+  padding: 0.35rem 0.85rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--vp-c-text-2);
+}
+
+.gt-total-value {
+  padding: 0.35rem 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+  text-align: right;
+}
 </style>

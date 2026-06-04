@@ -1,0 +1,1207 @@
+00:01 In the previous video, we talked about
+00:03 
+
+00:03 why comparing trading strategies is
+00:04 
+
+00:04 harder than it looks. We saw that
+00:06 
+
+00:06 focusing on a single metric doesn't work
+00:08 
+
+00:08 and ranking strategies against each
+00:10 
+
+00:10 other can still lead to bad decisions.
+00:13 
+
+00:13 This is because ranking only tells you
+00:15 
+
+00:15 which strategy is better relative to the
+00:16 
+
+00:16 others and not if a strategy is actually
+00:18 
+
+00:18 good enough to trade with. So instead of
+00:21 
+
+00:21 ranking, I introduced a scoring system
+00:23 
+
+00:23 which is based on multiple scientific
+00:25 
+
+00:25 research papers. This system evaluates
+00:27 
+
+00:27 every strategy against absolute
+00:29 
+
+00:29 standards for risk, profitability,
+00:31 
+
+00:31 consistency, robustness, and other
+00:33 
+
+00:33 criteria. If you want this, it uses
+00:35 
+
+00:35 fixed anchors, hierarchical scoring, and
+00:38 
+
+00:38 hard deal breakers based on back test
+00:40 
+
+00:40 results. And the ultimate goal is to
+00:42 
+
+00:42 help you determine if a strategy has a
+00:43 
+
+00:43 chance to make you money in the future.
+00:46 
+
+00:46 In this video, I want to make this more
+00:48 
+
+00:48 concrete without making use of too much
+00:50 
+
+00:50 theory, but more with examples. For
+00:52 
+
+00:52 this, I will use a Jupyter notebook to
+00:54 
+
+00:54 show you some actual examples in code
+00:56 
+
+00:56 like how the scoring works, how anchors
+00:58 
+
+00:58 works, how weights are chosen, and how
+01:01 
+
+01:01 you can adapt the system to your own
+01:02 
+
+01:02 trading style. Now, before we look at
+01:04 
+
+01:04 any examples, I first want to show you
+01:06 
+
+01:06 the overall structure. One important
+01:08 
+
+01:08 design choice is that configuration is
+01:10 
+
+01:10 separated from logic and that means that
+01:12 
+
+01:12 anchors, weights, deal breakers, and
+01:14 
+
+01:14 other criteria [clears throat] are
+01:15 
+
+01:15 defined first in one place and that the
+01:17 
+
+01:17 scoring logic itself doesn't change.
+01:19 
+
+01:19 This is intentionally done because by
+01:21 
+
+01:21 splitting these into two sections, it
+01:23 
+
+01:23 makes the system understandable,
+01:24 
+
+01:24 transparent, reproducible, and also easy
+01:27 
+
+01:27 to adapt without writing too much code.
+01:29 
+
+01:29 So let's first start by importing a few
+01:31 
+
+01:31 basics and then define some simple
+01:33 
+
+01:33 configurations. First I will open the
+01:35 
+
+01:35 notebook and then import some necessary
+01:37 
+
+01:37 modules at the top otherwise the
+01:39 
+
+01:39 examples won't run. And then it's time
+01:41 
+
+01:41 to define the criteria. I'm adding uh
+01:43 
+
+01:43 this in a JSON structure here so that
+01:45 
+
+01:45 it's easy to read and understand. At the
+01:47 
+
+01:47 top of this JSON structure, the anchors
+01:49 
+
+01:49 are defined. [music] And within these
+01:51 
+
+01:51 anchors, the end results are measured.
+01:52 
+
+01:52 If you remember the last video, then the
+01:55 
+
+01:55 weights are defined. And remember also
+01:57 
+
+01:57 that these weights are very personal and
+01:58 
+
+01:58 must fit your trading style and risk
+02:00 
+
+02:00 appetite. Here I determine that sharp
+02:03 
+
+02:03 has a weight of 40%, the profits weigh
+02:05 
+
+02:05 for 30, and the maximum draw down also
+02:07 
+
+02:07 weighs for 30%. Now if there are people
+02:10 
+
+02:10 that give more importance to the maximum
+02:12 
+
+02:12 draw down the strategy should have then
+02:14 
+
+02:14 the weights should be higher here you
+02:16 
+
+02:16 can make this 60% for example but then
+02:18 
+
+02:18 you have to dial the other numbers of
+02:20 
+
+02:20 these other weights back so that these
+02:22 
+
+02:22 all sum to one or 100%.
+02:25 
+
+02:25 Finally in this section the deal
+02:27 
+
+02:27 breakers are defined and in this example
+02:29 
+
+02:29 I want a strategies back test result to
+02:31 
+
+02:31 have at least 30 trades and experience a
+02:34 
+
+02:34 maximum draw down of 50%. Now these two
+02:37 
+
+02:37 breakers are defined last but they
+02:38 
+
+02:38 actually will be used first. For
+02:40 
+
+02:40 example, if I have a strategy with less
+02:42 
+
+02:42 than 30 trades that is on the daily time
+02:44 
+
+02:44 frame and over the last 3 years worth of
+02:46 
+
+02:46 data, then I won't even bother to
+02:48 
+
+02:48 investigate it further simply because I
+02:50 
+
+02:50 don't have enough quality data to
+02:52 
+
+02:52 analyze it. And this saves me time and I
+02:54 
+
+02:54 can proceed with next trading algorithms
+02:56 
+
+02:56 to investigate. So after these criteria
+02:58 
+
+02:58 are defined, let's start with a single
+02:60 
+
+03:00 strategy and remember because this is
+03:02 
+
+03:02 very important, we're not ranking
+03:04 
+
+03:04 anything yet. We're just asking one
+03:06 
+
+03:06 question and that is if this strategy is
+03:09 
+
+03:09 good enough on its own. So here is a
+03:11 
+
+03:11 simplified set of back test results.
+03:13 
+
+03:13 This sample strategy has 120 total
+03:16 
+
+03:16 trades, a sharp of 1.6, a profit factor
+03:19 
+
+03:19 of 1.8 and a maximum draw down of 0.22,
+03:22 
+
+03:22 in other words, 22%. Now the first thing
+03:25 
+
+03:25 the system has to check are the deal
+03:27 
+
+03:27 breakers. Because if a strategy violates
+03:29 
+
+03:29 basic safety rules, there's no point in
+03:31 
+
+03:31 scoring it further. In the next
+03:33 
+
+03:33 function, the total trades and the
+03:34 
+
+03:34 maximum draw down are measured or
+03:36 
+
+03:36 compared against the deal breakers.
+03:38 
+
+03:38 First, it checks the total trades and if
+03:40 
+
+03:40 this is lower than the deal breakers
+03:41 
+
+03:41 minimum trade, then it returns a false
+03:43 
+
+03:43 status with a message too few trades
+03:46 
+
+03:46 indicating that there are too few trades
+03:48 
+
+03:48 to even make an informed analysis. And
+03:50 
+
+03:50 then it also checks the measured maximum
+03:52 
+
+03:52 draw down from the back test against the
+03:54 
+
+03:54 maximum draw down deal breaker. And if
+03:56 
+
+03:56 this is higher, then it gives a status
+03:58 
+
+03:58 false and a message that the draw down
+04:00 
+
+04:00 is too high to continue. So if either or
+04:03 
+
+04:03 both of these are not measuring up
+04:04 
+
+04:04 against a certain threshold, then
+04:06 
+
+04:06 further analysis is off, we can proceed
+04:08 
+
+04:08 testing another strategy. Now luckily
+04:10 
+
+04:10 for us in this example, the strategy
+04:12 
+
+04:12 passes the basic safety checks and we
+04:15 
+
+04:15 can continue to actually score it. The
+04:17 
+
+04:17 next step is to normalize using fixed
+04:19 
+
+04:19 anchors. So in this step, I have a
+04:21 
+
+04:21 function that takes the back test
+04:22 
+
+04:22 results and puts it into the value
+04:24 
+
+04:24 parameter. The anchor parameters uses
+04:27 
+
+04:27 the complete dictionary from the
+04:28 
+
+04:28 configuration. And in the next line, it
+04:31 
+
+04:31 splits that configuration object into
+04:33 
+
+04:33 the lower anchor and upper anchor
+04:34 
+
+04:34 values. And on this line, it also
+04:36 
+
+04:36 discovers if these anchor values are
+04:38 
+
+04:38 inverse or not in the inverse variable.
+04:41 
+
+04:41 Now, if these anchors are inversed like
+04:42 
+
+04:42 in the draw down for example, then the
+04:44 
+
+04:44 back test result score will be
+04:46 
+
+04:46 calculated with this line. Else it uses
+04:49 
+
+04:49 the normal scoring calculation. With
+04:51 
+
+04:51 these lines, the values distance is
+04:53 
+
+04:53 measured between the worst and the best
+04:55 
+
+04:55 acceptable value. And with this line,
+04:57 
+
+04:57 the values are clipped so that ultimate
+04:60 
+
+04:60 score stays within the 100% range. Now,
+05:02 
+
+05:02 these clippings worker if the back test
+05:04 
+
+05:04 scores are higher than the defined upper
+05:05 
+
+05:05 levels. Like for example, if a sharp of
+05:08 
+
+05:08 four and a half is calculated, then you
+05:10 
+
+05:10 know that this is higher than the upper
+05:11 
+
+05:11 level, which is a three, and should be
+05:13 
+
+05:13 clipped to stay within the 100% range.
+05:16 
+
+05:16 The return line here multiplies the
+05:17 
+
+05:17 score times 100. So eventually every
+05:20 
+
+05:20 metric gets mapped to a 0 to 100 score
+05:23 
+
+05:23 and all these scores are now calculated
+05:25 
+
+05:25 and directly inserted into adjacent
+05:27 
+
+05:27 formatted output for further
+05:29 
+
+05:29 calculations later on.
+05:32 
+
+05:32 So you see there's nothing magical
+05:34 
+
+05:34 happening here but each metric is just
+05:36 
+
+05:36 being measured against predefined
+05:37 
+
+05:37 expectations.
+05:39 
+
+05:39 Now that we have these scores we can
+05:41 
+
+05:41 combine these into a single score. But
+05:43 
+
+05:43 before we do that we first have to
+05:44 
+
+05:44 multiply these with our defined weights.
+05:47 
+
+05:47 And again, these weights are a
+05:48 
+
+05:48 reflection of which these performance
+05:50 
+
+05:50 indicators we value most. So let's take
+05:53 
+
+05:53 each of these indicator values from the
+05:54 
+
+05:54 JSON formatted score object and multiply
+05:57 
+
+05:57 it with the weight that is in the config
+05:59 
+
+05:59 object which is also JSON formatted.
+06:01 
+
+06:01 These calculations are all stored in
+06:03 
+
+06:03 their own variable and then we can sum
+06:05 
+
+06:05 up all these scores uh to one total
+06:07 
+
+06:07 score and these all result in an end
+06:10 
+
+06:10 score of 56.05.
+06:13 
+
+06:13 Now that number is the absolute quality
+06:15 
+
+06:15 score of the strategy. It is still not
+06:17 
+
+06:17 compared against anything else and it's
+06:19 
+
+06:19 also not influenced by other results.
+06:21 
+
+06:21 This single number just tells us how
+06:23 
+
+06:23 well the strategy meets our standards.
+06:26 
+
+06:26 Now let's make this a little bit more
+06:28 
+
+06:28 interesting by altering the weights of
+06:29 
+
+06:29 the performance indicators. I can use
+06:31 
+
+06:31 two different waiting systems to see if
+06:33 
+
+06:33 the strategy is fitting a more
+06:35 
+
+06:35 conservative or aggressive trading
+06:37 
+
+06:37 approach. I will now add a function to
+06:39 
+
+06:39 this notebook cell and that one is
+06:41 
+
+06:41 reusable and it calculates the scores
+06:43 
+
+06:43 with the weights above. So this is total
+06:46 
+
+06:46 conservative weights number and this is
+06:48 
+
+06:48 the number for the aggressive weights.
+06:51 
+
+06:51 Now we see that the same strategy with
+06:52 
+
+06:52 the same raw performance has different
+06:54 
+
+06:54 end scores based on the preference of
+06:56 
+
+06:56 the trader that defines weights. If you
+06:58 
+
+06:58 are a conservative trader that does not
+06:60 
+
+06:60 like too much draw down, you now
+07:02 
+
+07:02 directly have an answer to the question
+07:03 
+
+07:03 if this strategy matches your trading
+07:05 
+
+07:05 needs. And the conclusion is that this
+07:07 
+
+07:07 strategy fits a conservative trader
+07:09 
+
+07:09 pretty well. However, if you are an
+07:11 
+
+07:11 aggressive trader, then you weigh other
+07:13 
+
+07:13 factors higher like profit factor.
+07:15 
+
+07:15 [music] And you know now that this
+07:16 
+
+07:16 strategy aligns less with aggressive
+07:18 
+
+07:18 preferences. So relatively speaking,
+07:21 
+
+07:21 this strategy is better suited for
+07:22 
+
+07:22 conservative traders than for aggressive
+07:25 
+
+07:25 ones. And now I hope that you start to
+07:27 
+
+07:27 understand that they have different
+07:28 
+
+07:28 priorities provide different results.
+07:30 
+
+07:30 And that's exactly the point. The system
+07:33 
+
+07:33 doesn't optimize for you, but it
+07:34 
+
+07:34 enforces consistency.
+07:36 
+
+07:36 And this is also why I like this
+07:38 
+
+07:38 approach because it doesn't predict
+07:39 
+
+07:39 returns and it doesn't promise any edge.
+07:42 
+
+07:42 But it what it does it just prevents bad
+07:44 
+
+07:44 decisions. It rejects unsafe strategies
+07:47 
+
+07:47 early and forces you and me of course to
+07:50 
+
+07:50 define your standards and gives you a
+07:52 
+
+07:52 transparent repeatable way of judging
+07:54 
+
+07:54 strategies quality. And if you want to
+07:56 
+
+07:56 experiment with this then start simple.
+07:59 
+
+07:59 First define your anchors define your
+08:01 
+
+08:01 deal breakers and be honest about what
+08:02 
+
+08:02 you value. And that alone will already
+08:05 
+
+08:05 improve how you evaluate trading
+08:06 
+
+08:06 strategies. Now, so far in this example,
+08:09 
+
+08:09 we looked at just one strategy in
+08:11 
+
+08:11 isolation. And that's intentional
+08:12 
+
+08:12 because the first question is always if
+08:15 
+
+08:15 this strategy is acceptable at all. But
+08:17 
+
+08:17 once multiple strategies pass the same
+08:20 
+
+08:20 deal breakers, then they can be
+08:21 
+
+08:21 evaluated with the same anchors and
+08:23 
+
+08:23 weights and also we can compare these
+08:25 
+
+08:25 meaningfully. The key is here that the
+08:27 
+
+08:27 comparison now happens on equal footing.
+08:30 
+
+08:30 We use the same rules and we use the
+08:32 
+
+08:32 same standards and the same priorities.
+08:35 
+
+08:35 So now let's take a look at another
+08:36 
+
+08:36 example where I use two different
+08:38 
+
+08:38 trading strategies back test results and
+08:40 
+
+08:40 only one set of weights that was defined
+08:42 
+
+08:42 earlier. With these results at first
+08:45 
+
+08:45 glance, these strategies back test
+08:46 
+
+08:46 outcomes look very different. One has
+08:49 
+
+08:49 better risk adjusted returns and the
+08:50 
+
+08:50 other one is more profitable but more
+08:52 
+
+08:52 riskier. And this is exactly the kind of
+08:54 
+
+08:54 situation where people got stuck because
+08:56 
+
+08:56 uh based on these outcomes they cannot
+08:58 
+
+08:58 determine which strategy to test out
+09:00 
+
+09:00 further and eventually use in real
+09:02 
+
+09:02 trading. So instead of guessing we score
+09:04 
+
+09:04 them and again we will use the function
+09:07 
+
+09:07 that uses the strategies outcomes as
+09:09 
+
+09:09 parameter input and the configuration as
+09:11 
+
+09:11 the second input. And by using both the
+09:14 
+
+09:14 strategies back test results and the
+09:16 
+
+09:16 config from earlier we can make a
+09:18 
+
+09:18 comparison between these two strategies.
+09:20 
+
+09:20 And now I hope that this is the moment
+09:22 
+
+09:22 where things become very clear because
+09:24 
+
+09:24 both strategies passed the same deal
+09:26 
+
+09:26 breakers which tell that they meet our
+09:28 
+
+09:28 initial standards of at least 30 samples
+09:31 
+
+09:31 in the back test and less than 50% draw
+09:33 
+
+09:33 down and they both were evaluated using
+09:36 
+
+09:36 the same anchors and the same weights.
+09:38 
+
+09:38 So the comparison is fair. In this
+09:40 
+
+09:40 example, strategy A scored higher
+09:42 
+
+09:42 overall not because it dominated every
+09:44 
+
+09:44 metric but because it better matched our
+09:47 
+
+09:47 trading priorities. We can also dive a
+09:50 
+
+09:50 little bit deeper and look at the
+09:51 
+
+09:51 component level scores. And this table
+09:53 
+
+09:53 is also just as important as the final
+09:55 
+
+09:55 score because it shows you why strategy
+09:58 
+
+09:58 A scored higher than the other. In this
+09:60 
+
+09:60 example, sharp ratio and draw down
+10:02 
+
+10:02 scored both very high and adding these
+10:04 
+
+10:04 up made it score higher overall and to
+10:07 
+
+10:07 better match the preferred trading style
+10:08 
+
+10:08 of the trader. So it was not by
+10:11 
+
+10:11 cherrypicking some metrics uh not by
+10:13 
+
+10:13 ranking some raw numbers but by applying
+10:15 
+
+10:15 the same standards consistently. And
+10:17 
+
+10:17 once you do that, the comparison becomes
+10:19 
+
+10:19 less emotional and much more
+10:20 
+
+10:20 disciplined. Now the nice part about the
+10:22 
+
+10:22 Jupyter notebook is that I can also
+10:24 
+
+10:24 visualize the true strategies I just
+10:26 
+
+10:26 scored in uh this is called a spider or
+10:29 
+
+10:29 radar plot I think. So let's copy and
+10:31 
+
+10:31 paste these codes in these cells and
+10:34 
+
+10:34 never mind the code itself because you
+10:35 
+
+10:35 can download the notebook from my
+10:37 
+
+10:37 Patreon site. What's more important is
+10:39 
+
+10:39 that this charts visualization tells you
+10:41 
+
+10:41 something very important at a glance.
+10:43 
+
+10:43 You can immediately see why strategy A
+10:46 
+
+10:46 is strong and where strategy B is strong
+10:48 
+
+10:48 and where each one compromises. Now you
+10:51 
+
+10:51 also have to understand that there's no
+10:52 
+
+10:52 perfect shape because there never is. Uh
+10:55 
+
+10:55 but know that what matters is which
+10:57 
+
+10:57 shape matches your priorities. And
+10:60 
+
+10:60 because both strategies pass the same
+11:01 
+
+11:01 deal breakers, use the same anchors and
+11:03 
+
+11:03 use the same weights, this comparison is
+11:05 
+
+11:05 fair, meaningful, and actionable. And
+11:07 
+
+11:07 this is what the structured decision
+11:09 
+
+11:09 making looks like in practice.
+11:11 
+
+11:11 Now, there is one final layer I'd like
+11:13 
+
+11:13 to add on top of this numeric score, and
+11:15 
+
+11:15 that is grading. Now, grading doesn't
+11:17 
+
+11:17 change the math, but it's simply a way
+11:18 
+
+11:18 to make decisions faster and more
+11:20 
+
+11:20 consistent. And the idea is very simple.
+11:23 
+
+11:23 We define score ranges and map them to
+11:25 
+
+11:25 familiar grades. For example, scores
+11:28 
+
+11:28 above 85 might be A+. Scores in the high
+11:31 
+
+11:31 70s and low 80s become A or A minus. In
+11:34 
+
+11:34 the 60s, they fall into the B range, and
+11:36 
+
+11:36 lower scores drop into C or D. and
+11:38 
+
+11:38 anything that fails a dealbreaker is
+11:40 
+
+11:40 clearly marked and rejected with an F.
+11:43 
+
+11:43 The most important part that you have to
+11:44 
+
+11:44 be aware of is that the grade is derived
+11:46 
+
+11:46 from the score and not the other way
+11:48 
+
+11:48 around. So when a strategy gets an A, it
+11:50 
+
+11:50 means that it met your standards across
+11:52 
+
+11:52 multiple dimensions and not that it's
+11:55 
+
+11:55 perfect or that it will keep its edge
+11:57 
+
+11:57 forever, but that it is good enough to
+11:59 
+
+11:59 be considered seriously for further
+12:01 
+
+12:01 investigation and testing. [music] Now
+12:02 
+
+12:02 let's apply the scoring system to the
+12:04 
+
+12:04 two strategies with a simple function
+12:06 
+
+12:06 that I have here. And notice it what it
+12:09 
+
+12:09 does. It doesn't remove nuances because
+12:11 
+
+12:11 you still have the numeric score, the
+12:12 
+
+12:12 breakdown, and the visualization. But
+12:14 
+
+12:14 the grade gives you a clear human
+12:16 
+
+12:16 readable summary. Strategy A has a grade
+12:19 
+
+12:19 C, while strategy B has scored a D. And
+12:22 
+
+12:22 now when you reviewing many, many
+12:24 
+
+12:24 strategies like I do, then this matters
+12:26 
+
+12:26 a lot because it reduces decision
+12:28 
+
+12:28 fatigue and prevents overthinking. It
+12:30 
+
+12:30 helps to stay consistent and keep things
+12:32 
+
+12:32 simple. But realize that grades are just
+12:34 
+
+12:34 the final label on the process that's
+12:36 
+
+12:36 already transparent and defensible. So
+12:39 
+
+12:39 now that we are nearing the end of the
+12:41 
+
+12:41 video, let's quickly recap what we did
+12:43 
+
+12:43 here because in the end we still made a
+12:45 
+
+12:45 lot of progress and did a lot of theory.
+12:48 
+
+12:48 We started by taking the scoring system
+12:49 
+
+12:49 from the previous video and actually
+12:51 
+
+12:51 used it in practice. We scored a single
+12:53 
+
+12:53 strategy in isolation to answer the most
+12:55 
+
+12:55 important first question which is is
+12:58 
+
+12:58 this strategy acceptable at all? And
+12:60 
+
+12:60 then we compared two strategies with the
+13:02 
+
+13:02 same deal breakers, the same anchors and
+13:04 
+
+13:04 the same weights. So the comparison was
+13:06 
+
+13:06 meaningful and fair. And then we
+13:08 
+
+13:08 visualized the trade-offs so we could
+13:10 
+
+13:10 see where each strategy is strong and
+13:11 
+
+13:11 where it compromises. And finally, we
+13:13 
+
+13:13 translated the scores into simple grades
+13:16 
+
+13:16 to make decisions faster and more
+13:17 
+
+13:17 consistent. Now, the key idea behind
+13:19 
+
+13:19 these two videos I made about this
+13:21 
+
+13:21 subject is that in the end, you trade
+13:23 
+
+13:23 strategies that are good enough, robust
+13:25 
+
+13:25 enough, and safe enough according to
+13:26 
+
+13:26 your own rules and preferences. But
+13:29 
+
+13:29 remember that this system doesn't
+13:30 
+
+13:30 predict the future and it doesn't
+13:32 
+
+13:32 promise us an edge. But what it does
+13:34 
+
+13:34 promise is to prevent bad decisions and
+13:36 
+
+13:36 forces clarity where most traders rely
+13:38 
+
+13:38 on gut feelings. And this is where you
+13:40 
+
+13:40 have an edge over 99% of all other
+13:42 
+
+13:42 traders out there. Now, if you like what
+13:44 
+
+13:44 I do, then click like and subscribe to
+13:46 
+
+13:46 the channel and please give me a comment
+13:48 
+
+13:48 if you actually are using this system
+13:50 
+
+13:50 and how you like it. Thanks for watching
+13:52 
+
+13:52 this video and I will see you in the
+13:54 
+
+13:54 next one. Goodbye.

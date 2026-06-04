@@ -168,6 +168,13 @@ function compareSelected() {
 
 const MEDALS = ['🥇', '🥈', '🥉'] as const
 
+// ── Grade ──────────────────────────────────────────────
+const GRADE_CLASS: Record<string, string> = {
+  'S+': 'g-splus', 'S': 'g-s', 'A': 'g-a',
+  'B': 'g-b', 'C': 'g-c', 'D': 'g-d', 'E': 'g-e', 'F': 'g-f',
+}
+function gradeClass(grade: string): string { return GRADE_CLASS[grade] ?? '' }
+
 // ── Equity sparklines ─────────────────────────────────
 function sparklinePts(curve: number[]): string {
   const n = curve.length
@@ -253,6 +260,9 @@ function sparklineColor(curve: number[]): string {
               <th class="sortable" @click="toggleSort(group.tf, 'strategy')">
                 Strategy <span class="sort-icon">{{ sortIcon(group.tf, 'strategy') }}</span>
               </th>
+              <th class="sortable grade-th" @click="toggleSort(group.tf, 'score')">
+                Grade <span class="sort-icon">{{ sortIcon(group.tf, 'score') }}</span>
+              </th>
               <th class="sortable" @click="toggleSort(group.tf, 'timeframe')">
                 TF <span class="sort-icon">{{ sortIcon(group.tf, 'timeframe') }}</span>
               </th>
@@ -310,6 +320,9 @@ function sparklineColor(curve: number[]): string {
               <td>
                 <span class="strategy-badge">{{ b.strategy }}</span>
               </td>
+              <td class="grade-td">
+                <span class="grade-badge" :class="gradeClass(b.grade)">{{ b.grade }}</span>
+              </td>
               <td>
                 <span class="timeframe-badge">{{ b.timeframe }}</span>
               </td>
@@ -349,7 +362,7 @@ function sparklineColor(curve: number[]): string {
             </tr>
 
             <tr v-if="group.rows.length === 0" class="empty-row">
-              <td colspan="14" class="empty-tf">No runs yet</td>
+              <td colspan="15" class="empty-tf">No runs yet</td>
             </tr>
           </tbody>
         </table>
@@ -748,4 +761,36 @@ function sparklineColor(curve: number[]): string {
   font-size: 0.85rem;
   color: var(--vp-c-text-3);
 }
+
+/* ── Grade column ────────────────────────────────────── */
+.grade-th {
+  text-align: center;
+  min-width: 4rem;
+}
+
+.grade-td {
+  text-align: center;
+  padding: 0.32rem 0.6rem;
+}
+
+.grade-badge {
+  display: inline-block;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: var(--vp-c-bg-mute);
+  color: var(--vp-c-text-2);
+}
+
+.grade-badge.g-splus { color: #FF7F7F; background: rgba(255,127,127,0.12); }
+.grade-badge.g-s     { color: #FEBF7E; background: rgba(254,191,126,0.12); }
+.grade-badge.g-a     { color: #80FF80; background: rgba(128,255,128,0.12); }
+.grade-badge.g-b     { color: #C0FF7E; background: rgba(192,255,126,0.12); }
+.grade-badge.g-c     { color: #FFFF80; background: rgba(255,255,128,0.12); }
+.grade-badge.g-d     { color: #E0E0A0; background: rgba(224,224,160,0.12); }
+.grade-badge.g-e     { color: #CFCFCF; background: rgba(207,207,207,0.12); }
+.grade-badge.g-f     { color: #858585; background: rgba(133,133,133,0.12); }
 </style>

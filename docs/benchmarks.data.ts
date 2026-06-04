@@ -29,6 +29,55 @@ export interface BenchmarkSummary {
   backtestDays: number
   /** Downsampled equity curve: ~20 cumulative balance values, oldest→newest */
   equityCurve: number[]
+  /** Composite quality score 0–100 (0 = failed deal breaker) */
+  score: number
+  /** Letter grade derived from score: A+/A/A-/B+/B/B-/C/D/F */
+  grade: string
+}
+
+// ── Scoring system ────────────────────────────────────────────────────────────
+// Weights must sum to 1.0
+const SCORE_WEIGHTS = { sharpe: 0.40, profit: 0.30, drawdown: 0.30 }
+// Anchors: [lower (worst acceptable → score 0), upper (excellent cap → score 100)]
+// Values outside the range are clamped (no bonus above upper, no penalty below lower).
+const SCORE_ANCHORS = {
+  sharpe:   { lower: 0.5, upper: 2.5 },
+  profit:   { lower: 0.0, upper: 0.5 },   // raw fractions; 50 % return caps at 100
+  drawdown: { lower: 0.25, upper: 0.05 }, // raw fraction; lower=worse (25 % bad, 5 % excellent)
+}
+const DEAL_BREAKERS = { minTrades: 30, maxDrawdown: 0.50 }
+
+function normalize(value: number, lower: number, upper: number, inverse: boolean): number {
+  if (inverse) {
+    // Higher value = worse (e.g. drawdown): map [lower..upper] → [0..100]
+    const clamped = Math.max(upper, Math.min(lower, value))
+    return ((lower - clamped) / (lower - upper)) * 100
+  }
+  const clamped = Math.max(lower, Math.min(upper, value))
+  return ((clamped - lower) / (upper - lower)) * 100
+}
+
+function scoreToGrade(score: number): string {
+  if (score >= 90) return 'S+'
+  if (score >= 80) return 'S'
+  if (score >= 65) return 'A'
+  if (score >= 50) return 'B'
+  if (score >= 35) return 'C'
+  if (score >= 20) return 'D'
+  return 'E'
+}
+
+function calcScore(totalTrades: number, profitFraction: number, sharpe: number, drawdownFraction: number): { score: number; grade: string } {
+  if (totalTrades < DEAL_BREAKERS.minTrades || drawdownFraction > DEAL_BREAKERS.maxDrawdown) {
+    return { score: 0, grade: 'F' }
+  }
+  const sharpeScore    = normalize(sharpe, SCORE_ANCHORS.sharpe.lower, SCORE_ANCHORS.sharpe.upper, false)
+  const profitScore    = normalize(profitFraction, SCORE_ANCHORS.profit.lower, SCORE_ANCHORS.profit.upper, false)
+  const drawdownScore  = normalize(drawdownFraction, SCORE_ANCHORS.drawdown.lower, SCORE_ANCHORS.drawdown.upper, true)
+  const score = sharpeScore * SCORE_WEIGHTS.sharpe
+             + profitScore  * SCORE_WEIGHTS.profit
+             + drawdownScore * SCORE_WEIGHTS.drawdown
+  return { score: +score.toFixed(1), grade: scoreToGrade(score) }
 }
 
 export declare const data: BenchmarkSummary[]
@@ -93,6 +142,13 @@ export default {
             date = m ? m[1] : ''
           }
 
+          const { score, grade } = calcScore(
+            s.total_trades ?? 0,
+            s.profit_total ?? 0,
+            s.sharpe ?? 0,
+            s.max_drawdown_account ?? 0,
+          )
+
           results.push({
             id: file.replace('.json', ''),
             strategy: s.strategy_name ?? 'Unknown',
@@ -112,6 +168,8 @@ export default {
             finalBalance: s.final_balance ?? 0,
             backtestDays: s.backtest_days ?? 0,
             equityCurve: buildEquityCurve(s.trades, s.starting_balance ?? 0),
+            score,
+            grade,
           })
         }
       } catch (e) {
