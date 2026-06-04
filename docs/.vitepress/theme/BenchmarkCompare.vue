@@ -792,12 +792,12 @@ function monthPnlCls(mine: MonthRow | null, other: MonthRow | null): string {
   background: var(--vp-c-bg-mute);
   color: var(--vp-c-text-2);
 }
-.grade-badge.g-splus { color: #FF7F7F; background: rgba(255,127,127,0.12); }
-.grade-badge.g-s     { color: #FEBF7E; background: rgba(254,191,126,0.12); }
-.grade-badge.g-a     { color: #80FF80; background: rgba(128,255,128,0.12); }
-.grade-badge.g-b     { color: #C0FF7E; background: rgba(192,255,126,0.12); }
-.grade-badge.g-c     { color: #FFFF80; background: rgba(255,255,128,0.12); }
-.grade-badge.g-d     { color: #E0E0A0; background: rgba(224,224,160,0.12); }
-.grade-badge.g-e     { color: #CFCFCF; background: rgba(207,207,207,0.12); }
-.grade-badge.g-f     { color: #858585; background: rgba(133,133,133,0.12); }
+.grade-badge.g-splus { color: var(--bd-grade-splus); background: var(--bd-grade-splus-bg); }
+.grade-badge.g-s     { color: var(--bd-grade-s);    background: var(--bd-grade-s-bg); }
+.grade-badge.g-a     { color: var(--bd-grade-a);    background: var(--bd-grade-a-bg); }
+.grade-badge.g-b     { color: var(--bd-grade-b);    background: var(--bd-grade-b-bg); }
+.grade-badge.g-c     { color: var(--bd-grade-c);    background: var(--bd-grade-c-bg); }
+.grade-badge.g-d     { color: var(--bd-grade-d);    background: var(--bd-grade-d-bg); }
+.grade-badge.g-e     { color: var(--bd-grade-e);    background: var(--bd-grade-e-bg); }
+.grade-badge.g-f     { color: var(--bd-grade-f);    background: var(--bd-grade-f-bg); }
 </style>

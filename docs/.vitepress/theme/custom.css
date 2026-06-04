@@ -2,6 +2,16 @@
 
 /* ── Semantic colour tokens ──────────────────────────── */
 :root {
+  /* Grade badge colors — light mode */
+  --bd-grade-splus:    #c41f1f; --bd-grade-splus-bg: rgba(196,31,31,0.13);
+  --bd-grade-s:        #b06a00; --bd-grade-s-bg:    rgba(176,106,0,0.13);
+  --bd-grade-a:        #12903a; --bd-grade-a-bg:    rgba(18,144,58,0.13);
+  --bd-grade-b:        #4e8c00; --bd-grade-b-bg:    rgba(78,140,0,0.13);
+  --bd-grade-c:        #928000; --bd-grade-c-bg:    rgba(146,128,0,0.13);
+  --bd-grade-d:        #6e6428; --bd-grade-d-bg:    rgba(110,100,40,0.13);
+  --bd-grade-e:        #686868; --bd-grade-e-bg:    rgba(104,104,104,0.13);
+  --bd-grade-f:        #585858; --bd-grade-f-bg:    rgba(88,88,88,0.13);
+
   --bd-positive:    #16a34a;
   --bd-positive-bg: rgba(24, 121, 78, 0.10);
   --bd-negative:    #dc2626;
@@ -19,6 +29,16 @@
 }
 
 .dark {
+  /* Grade badge colors — dark mode */
+  --bd-grade-splus:    #FF7F7F; --bd-grade-splus-bg: rgba(255,127,127,0.12);
+  --bd-grade-s:        #FEBF7E; --bd-grade-s-bg:    rgba(254,191,126,0.12);
+  --bd-grade-a:        #80FF80; --bd-grade-a-bg:    rgba(128,255,128,0.12);
+  --bd-grade-b:        #C0FF7E; --bd-grade-b-bg:    rgba(192,255,126,0.12);
+  --bd-grade-c:        #FFFF80; --bd-grade-c-bg:    rgba(255,255,128,0.12);
+  --bd-grade-d:        #E0E0A0; --bd-grade-d-bg:    rgba(224,224,160,0.12);
+  --bd-grade-e:        #CFCFCF; --bd-grade-e-bg:    rgba(207,207,207,0.12);
+  --bd-grade-f:        #858585; --bd-grade-f-bg:    rgba(133,133,133,0.12);
+
   --bd-positive:    #4ade80;
   --bd-positive-bg: rgba(74, 222, 128, 0.12);
   --bd-negative:    #f87171;
