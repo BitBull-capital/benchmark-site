@@ -313,7 +313,7 @@ function sparklineColor(curve: number[]): string {
                 <MedalBadge
                   v-if="group.podium.has(b.id)"
                   :rank="(group.podium.get(b.id) as 0|1|2)"
-                  :profit="b.profit ?? 0"
+                  :grade="b.grade"
                 />
                 <span v-else class="row-num">{{ idx + 1 }}</span>
               </td>

@@ -612,7 +612,7 @@ const runDate = computed(() => {
           <MedalBadge
             v-if="props.medal != null"
             :rank="props.medal"
-            :profit="s.profit_total * 100"
+            :grade="gradeBreakdown.grade"
           />
           <span class="badge-strategy">{{ s.strategy_name }}</span>
           <span class="badge-tf">{{ s.timeframe }}</span>

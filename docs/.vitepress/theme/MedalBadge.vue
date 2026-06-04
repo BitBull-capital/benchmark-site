@@ -4,12 +4,12 @@ import { useData } from 'vitepress'
 
 const props = defineProps<{
   rank: 0 | 1 | 2
-  profit: number
+  grade?: string
 }>()
 
 const MEDALS = ['🥇', '🥈', '🥉'] as const
 
-const showRays = props.rank === 0 && props.profit > 50
+const showRays = props.grade === 'S+' || props.grade === 'S'
 
 // ── Sunbeam rays ──────────────────────────────────────
 interface Ray {
