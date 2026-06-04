@@ -261,9 +261,9 @@ function pc(v: number) { return pct(v * 100) }
 
 function formatPeriod(days: number): string {
   if (!days) return ''
-  const y  = Math.round(days / 365)
-  const mo = Math.round(days / 30)
-  const w  = Math.round(days / 7)
+  const y  = Math.floor(days / 365)
+  const mo = Math.floor(days / 30)
+  const w  = Math.floor(days / 7)
   if (y  >= 1) return `${y}y`
   if (mo >= 1) return `${mo}m`
   if (w  >= 1) return `${w}w`
