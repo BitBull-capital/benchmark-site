@@ -160,6 +160,15 @@ const exitReasonRows = computed(() =>
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
+const fmtMoney = (v: number) =>
+  (v >= 0 ? '+' : '') + v.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+
+const formatTransitionDate = (iso: string) => {
+  const [yr, mo, dy] = iso.split('-')
+  return `${MONTH_NAMES[parseInt(mo, 10) - 1]} ${parseInt(dy, 10)}, ${yr}`
+}
+
+
 function parseMonthLabel(date: string): string {
   // date is "DD/MM/YYYY"
   const parts = date.split('/')
@@ -462,6 +471,240 @@ const gradeBreakdown = computed(() => {
     totalScore,
     grade: passed ? gradeFromScore(totalScore) : 'F',
   }
+})
+
+// ── HyroTrader 2-Step Challenge Simulator ─────────────────
+const HYDRO = {
+  phase1Target:  0.10,
+  phase2Target:  0.05,
+  maxDailyLoss:  0.05,
+  maxTotalLoss:  0.10,
+  phase1MinDays: 10,
+  phase2MinDays: 5,
+} as const
+
+type ChallengePhase = 'phase1' | 'phase2' | 'funded' | 'busted'
+
+interface ChallengeMonthRow {
+  kind: 'month'
+  key: string; label: string
+  pnlPct: number; worstDayPct: number; maxLossFromInitPct: number
+  tradingDays: number; phase: ChallengePhase; bustReason: string
+  totalProgressPct: number
+  phaseProgressPct: number   // cumulative within phase at month-end (used for label)
+  barValuePct: number        // bar fill position 0–100, snapped for transition months
+  barZeroPct: number         // where 0% profit sits on the bar
+  barIsNeg: boolean
+  phaseTarget: number
+}
+
+interface ChallengeTransitionRow {
+  kind: 'transition'
+  fromPhase: 'phase1' | 'phase2'
+  toPhase: 'phase2' | 'funded'
+  date: string   // ISO "YYYY-MM-DD"
+  barZeroPct: number
+  phasePct: number  // actual cumulative phase P&L at completion
+}
+
+type ChallengeRow = ChallengeMonthRow | ChallengeTransitionRow
+
+const hydroChallenge = computed(() => {
+  const closed = (s.value.trades ?? []).filter(t => !t.is_open)
+  if (!closed.length) return null
+  const initBal = s.value.starting_balance
+  if (!initBal) return null
+
+  // Group closed-trade P&L by calendar day
+  const dayMap = new Map<string, number>()
+  for (const t of closed) {
+    const d = new Date(t.close_timestamp).toISOString().slice(0, 10)
+    dayMap.set(d, (dayMap.get(d) ?? 0) + t.profit_abs)
+  }
+  const days = [...dayMap.entries()].sort(([a], [b]) => a.localeCompare(b))
+  if (!days.length) return null
+
+  let balance          = initBal
+  let phaseStartBal    = initBal
+  let phase: ChallengePhase = 'phase1'
+  let bustPhase: ChallengePhase = 'phase1'
+  let phasePnl         = 0
+  let phaseTradingDays = 0
+  let phase1EndIdx     = -1
+  let phase2EndIdx     = -1
+  let phase1EndBalance = initBal  // balance when phase 1 target is hit
+
+  interface SimDay {
+    date: string; pnlPct: number; lossFromInitPct: number
+    phase: ChallengePhase; bustReason: string
+    totalProgressPct: number
+    phaseProgressPct: number   // cumulative within current phase / phaseStartBal (resets each phase)
+    phaseTarget: number
+  }
+  const simDays: SimDay[] = []
+
+  for (let i = 0; i < days.length; i++) {
+    const [date, pnlAbs] = days[i]
+    const pnlPct = pnlAbs / initBal
+    let bustReason = ''
+
+    if (phase !== 'funded' && phase !== 'busted') {
+      if (pnlPct < -HYDRO.maxDailyLoss)
+        bustReason = `Daily loss −${(-pnlPct * 100).toFixed(1)}% > 5% limit`
+    }
+
+    balance += pnlAbs
+    const lossFromInitPct = Math.max(0, (initBal - balance) / initBal)
+
+    if (!bustReason && phase !== 'funded' && phase !== 'busted') {
+      if (lossFromInitPct > HYDRO.maxTotalLoss)
+        bustReason = `Total loss −${(lossFromInitPct * 100).toFixed(1)}% > 10% limit`
+    }
+
+    if (bustReason && phase !== 'busted') {
+      bustPhase = phase
+      phase = 'busted'
+    }
+
+    let phaseTarget = 0
+    let phaseProgressPct = 0
+
+    if (phase !== 'busted') {
+      if (pnlAbs !== 0) phaseTradingDays++
+      phasePnl += pnlAbs
+
+      phaseTarget = phase === 'phase1' ? HYDRO.phase1Target : phase === 'phase2' ? HYDRO.phase2Target : 0
+      // Snapshot before possible reset; funded has no target but still tracks cumulative P&L from funded-start
+      phaseProgressPct = phasePnl / phaseStartBal
+
+      if (phase === 'phase1' &&
+          phasePnl / phaseStartBal >= HYDRO.phase1Target &&
+          phaseTradingDays >= HYDRO.phase1MinDays) {
+        phase1EndIdx = i
+        phase1EndBalance = balance
+        phase = 'phase2'; phaseStartBal = balance; phasePnl = 0; phaseTradingDays = 0
+      } else if (phase === 'phase2' &&
+          phasePnl / phaseStartBal >= HYDRO.phase2Target &&
+          phaseTradingDays >= HYDRO.phase2MinDays) {
+        phase2EndIdx = i
+        phase = 'funded'; phaseStartBal = balance; phasePnl = 0; phaseTradingDays = 0
+      }
+    }
+
+    simDays.push({
+      date, pnlPct, lossFromInitPct, phase, bustReason,
+      totalProgressPct: (balance - initBal) / initBal,
+      phaseProgressPct,
+      phaseTarget,
+    })
+  }
+
+  // Compute combined target thresholds in totalProgressPct terms
+  // Phase 1 hits at +10%; Phase 2 hits at +10% + 5% of (initBal × 1.10) / initBal ≈ +15.5%
+  const p1TargetTotal = HYDRO.phase1Target
+  const p2TargetTotal = (phase1EndBalance - initBal + phase1EndBalance * HYDRO.phase2Target) / initBal
+
+  const calDaysBetween = (a: string, b: string) =>
+    Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000) + 1
+
+  const phase1CalDays = phase1EndIdx >= 0
+    ? calDaysBetween(days[0][0], days[phase1EndIdx][0]) : -1
+  const phase2CalDays = phase2EndIdx >= 0 && phase1EndIdx >= 0
+    ? calDaysBetween(days[phase1EndIdx + 1]?.[0] ?? days[0][0], days[phase2EndIdx][0]) : -1
+
+  // Monthly aggregation
+  const phase1EndMonthKey = phase1EndIdx >= 0 ? days[phase1EndIdx][0].slice(0, 7) : null
+  const phase2EndMonthKey = phase2EndIdx >= 0 ? days[phase2EndIdx][0].slice(0, 7) : null
+
+  const monthMap2 = new Map<string, SimDay[]>()
+  for (const d of simDays) {
+    const mk = d.date.slice(0, 7)
+    if (!monthMap2.has(mk)) monthMap2.set(mk, [])
+    monthMap2.get(mk)!.push(d)
+  }
+
+  const monthRows: ChallengeMonthRow[] = []
+  const rows: ChallengeRow[] = []
+  for (const [key, mDays] of monthMap2) {
+    const [yr, mo] = key.split('-')
+    const lastDay = mDays[mDays.length - 1]
+    const rawPhaseProgress = lastDay.phaseProgressPct
+    const phaseTgt = lastDay.phaseTarget
+    // Zero always at 50%; left half = -maxTotalLoss→0, right half = 0→phaseTarget (independent scales)
+    const barZeroPct = 50
+    const barRawPct = rawPhaseProgress < 0
+      ? Math.max(0, 50 + 50 * (rawPhaseProgress / HYDRO.maxTotalLoss))
+      : phaseTgt > 0
+        ? Math.min(100, 50 + 50 * (rawPhaseProgress / phaseTgt))
+        : 50
+
+    const monthRow: ChallengeMonthRow = {
+      kind: 'month',
+      key,
+      label: `${MONTH_NAMES[parseInt(mo, 10) - 1]} ${yr}`,
+      pnlPct:            mDays.reduce((acc, d) => acc + d.pnlPct, 0),
+      worstDayPct:       Math.min(...mDays.map(d => d.pnlPct)),
+      maxLossFromInitPct: Math.max(...mDays.map(d => d.lossFromInitPct)),
+      tradingDays:       mDays.filter(d => d.pnlPct !== 0).length,
+      phase:             lastDay.phase,
+      bustReason:        mDays.find(d => d.bustReason)?.bustReason ?? '',
+      totalProgressPct:  lastDay.totalProgressPct,
+      phaseProgressPct:  lastDay.phaseProgressPct,
+      barValuePct:       barRawPct,
+      barZeroPct,
+      barIsNeg:          rawPhaseProgress < 0,
+      phaseTarget:       phaseTgt,
+    }
+    monthRows.push(monthRow)
+
+    // Insert transition marker before the month where the new phase begins
+    if (key === phase1EndMonthKey && phase1EndIdx >= 0) {
+      rows.push({ kind: 'transition', fromPhase: 'phase1', toPhase: 'phase2', date: days[phase1EndIdx][0], barZeroPct: 50, phasePct: simDays[phase1EndIdx].phaseProgressPct })
+    }
+    if (key === phase2EndMonthKey && phase2EndIdx >= 0) {
+      rows.push({ kind: 'transition', fromPhase: 'phase2', toPhase: 'funded', date: days[phase2EndIdx][0], barZeroPct: 50, phasePct: simDays[phase2EndIdx].phaseProgressPct })
+    }
+
+    rows.push(monthRow)
+  }
+
+  const fundedStartKey = phase2EndIdx >= 0 ? days[phase2EndIdx][0].slice(0, 7) : null
+  const fundedStartMonthIdx = fundedStartKey
+    ? monthRows.findIndex(m => m.key >= fundedStartKey) : -1
+  const fundedRows = fundedStartMonthIdx >= 0 ? monthRows.slice(fundedStartMonthIdx) : []
+
+  const bustSimDay = simDays.find(d => d.bustReason)
+
+  return {
+    monthRows,
+    rows,
+    funded:            phase2EndIdx >= 0,
+    busted:            !!bustSimDay,
+    bustPhase:         bustSimDay ? bustPhase : null,
+    bustDate:          bustSimDay?.date ?? null,
+    bustReason:        bustSimDay?.bustReason ?? '',
+    initBal,
+    phase1CalDays,
+    phase2CalDays,
+    totalCalDays:      phase1CalDays >= 0 && phase2CalDays >= 0 ? phase1CalDays + phase2CalDays : -1,
+    phase1EndDate:     phase1EndIdx >= 0 ? days[phase1EndIdx][0] : null,
+    phase2EndDate:     phase2EndIdx >= 0 ? days[phase2EndIdx][0] : null,
+    fundedMonthsTotal: fundedRows.length,
+    fundedMonthsPass:  fundedRows.filter(m => !m.bustReason && m.phase !== 'busted').length,
+    p1TargetTotal,
+    p2TargetTotal,
+  }
+})
+
+// Shared bar coordinate system: -10% (left) to +25% (right)
+const hydroBarCfg = computed(() => {
+  const barMin = -HYDRO.maxTotalLoss  // -0.10
+  const barMax = 0.25
+  const range  = barMax - barMin       // 0.35
+  const toPos  = (v: number) => Math.max(0, Math.min(100, (v - barMin) / range * 100))
+  const p1 = hydroChallenge.value?.p1TargetTotal ?? HYDRO.phase1Target
+  const p2 = hydroChallenge.value?.p2TargetTotal ?? (HYDRO.phase1Target + HYDRO.phase2Target * 1.1)
+  return { barMin, barMax, range, toPos, zeroPct: toPos(0), p1Pct: toPos(p1), p2Pct: toPos(p2) }
 })
 
 const showConfig = ref(false)
@@ -800,6 +1043,142 @@ const runDate = computed(() => {
           </tfoot>
         </table>
       </div>
+    </section>
+
+    <!-- ── HyroTrader 2-Step Challenge ──────────────────── -->
+    <section v-if="hydroChallenge" class="detail-section">
+      <details class="hydro-details">
+        <summary class="hydro-summary">
+          <h2 class="section-title" style="margin-bottom:0">🏆 HyroTrader 2-Step Challenge</h2>
+          <div class="hydro-rules">
+            <span class="hr-chip">Phase 1 +10%</span>
+            <span class="hr-chip">Phase 2 +5%</span>
+            <span class="hr-chip hr-chip-limit">Daily −5%</span>
+            <span class="hr-chip hr-chip-limit">Max DD −10%</span>
+            <span class="hr-chip">Min {{ HYDRO.phase1MinDays }} / {{ HYDRO.phase2MinDays }} days</span>
+          </div>
+        </summary>
+
+      <!-- Summary cards -->
+      <div class="hydro-cards">
+        <div class="hydro-card" :class="hydroChallenge.phase1CalDays >= 0 ? 'hc-pass' : 'hc-fail'">
+          <div class="hc-label">Phase 1</div>
+          <div class="hc-value">{{ hydroChallenge.phase1CalDays >= 0 ? hydroChallenge.phase1CalDays + 'd' : '—' }}</div>
+          <div class="hc-sub">{{ hydroChallenge.phase1EndDate ?? 'not reached' }}</div>
+        </div>
+        <div class="hydro-card" :class="hydroChallenge.phase2CalDays >= 0 ? 'hc-pass' : 'hc-fail'">
+          <div class="hc-label">Phase 2</div>
+          <div class="hc-value">{{ hydroChallenge.phase2CalDays >= 0 ? hydroChallenge.phase2CalDays + 'd' : '—' }}</div>
+          <div class="hc-sub">{{ hydroChallenge.phase2EndDate ?? 'not reached' }}</div>
+        </div>
+        <div class="hydro-card" :class="hydroChallenge.funded ? 'hc-pass' : 'hc-fail'">
+          <div class="hc-label">Time to funded</div>
+          <div class="hc-value">{{ hydroChallenge.totalCalDays >= 0 ? hydroChallenge.totalCalDays + 'd' : '—' }}</div>
+          <div class="hc-sub">
+            <span v-if="hydroChallenge.totalCalDays >= 0">≈ {{ Math.round(hydroChallenge.totalCalDays / 7) }}w</span>
+            <span v-else>busted in {{ hydroChallenge.bustPhase === 'phase1' ? 'Phase 1' : 'Phase 2' }}</span>
+          </div>
+        </div>
+        <div v-if="hydroChallenge.funded" class="hydro-card" :class="hydroChallenge.fundedMonthsPass === hydroChallenge.fundedMonthsTotal ? 'hc-pass' : hydroChallenge.fundedMonthsPass > 0 ? 'hc-warn' : 'hc-fail'">
+          <div class="hc-label">Funded stability</div>
+          <div class="hc-value">{{ hydroChallenge.fundedMonthsPass }} / {{ hydroChallenge.fundedMonthsTotal }}</div>
+          <div class="hc-sub">months within rules</div>
+        </div>
+      </div>
+
+      <!-- Bust notice -->
+      <div v-if="hydroChallenge.busted" class="hydro-bust-banner">
+        ✗ Challenge busted {{ hydroChallenge.bustDate }} — {{ hydroChallenge.bustReason }}
+      </div>
+
+      <!-- Monthly breakdown table -->
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Phase</th>
+              <th class="hm-th-progress" title="Cumulative P&L since this phase started, as % of phase-start balance. Resets each phase.">Phase P&L</th>
+              <th class="num" title="Total P&L for this calendar month, as % of initial balance. In transition months this includes days from the prior phase.">Month P&L</th>
+              <th class="num">Worst Day</th>
+              <th class="num">Max Loss</th>
+              <th class="num">Trading Days</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="row in hydroChallenge.rows" :key="row.kind === 'month' ? row.key : `t-${row.date}`">
+              <!-- Phase transition milestone row -->
+              <tr v-if="row.kind === 'transition'" class="hm-transition-row">
+                <td class="mono">{{ formatTransitionDate(row.date) }}</td>
+                <td>
+                  <span class="hm-phase" :class="row.fromPhase === 'phase1' ? 'hmp-phase1' : 'hmp-phase2'">
+                    {{ row.fromPhase === 'phase1' ? 'Phase 1' : 'Phase 2' }}
+                  </span>
+                  <span class="hm-transition-arrow">→</span>
+                  <span class="hm-phase" :class="row.toPhase === 'phase2' ? 'hmp-phase2' : 'hmp-funded'">
+                    {{ row.toPhase === 'phase2' ? 'Phase 2' : 'Funded' }}
+                  </span>
+                </td>
+                <td class="hm-progress-cell">
+                  <div class="hm-bipolar-wrap">
+                    <div class="hm-fill"
+                      :class="row.toPhase === 'funded' ? 'hm-fill-funded' : 'hm-fill-pos'"
+                      :style="{ left: row.barZeroPct + '%', width: (100 - row.barZeroPct) + '%' }" />
+                    <div class="hm-marker hm-marker-zero" :style="{ left: row.barZeroPct + '%' }" />
+                  </div>
+                  <span class="hm-prog-label mono" :class="row.toPhase === 'funded' ? 'hpl-funded' : ''">
+                    {{ pct(row.phasePct * 100, 1) }} ✓
+                  </span>
+                </td>
+                <td colspan="5" class="hm-transition-note">
+                  {{ row.fromPhase === 'phase1' ? 'Challenge passed' : 'Funded 🎉' }}
+                </td>
+              </tr>
+              <!-- Regular month row -->
+              <tr v-else :class="{ 'hrow-bust': row.bustReason }">
+                <td class="mono">{{ row.label }}</td>
+                <td>
+                  <span class="hm-phase" :class="`hmp-${row.phase}`">
+                    {{ row.phase === 'phase1' ? 'Phase 1' : row.phase === 'phase2' ? 'Phase 2' : row.phase === 'funded' ? 'Funded' : '—' }}
+                  </span>
+                </td>
+                <td class="hm-progress-cell">
+                  <!-- Per-phase bar: left edge = −10% (bust), right edge = phase target (win) -->
+                  <div v-if="row.phase === 'phase1' || row.phase === 'phase2'" class="hm-bipolar-wrap">
+                    <div v-if="row.barIsNeg" class="hm-fill hm-fill-neg"
+                      :style="{ left: row.barValuePct + '%', width: (row.barZeroPct - row.barValuePct) + '%' }" />
+                    <div v-else class="hm-fill hm-fill-pos"
+                      :style="{ left: row.barZeroPct + '%', width: (row.barValuePct - row.barZeroPct) + '%' }" />
+                    <div class="hm-marker hm-marker-zero" :style="{ left: row.barZeroPct + '%' }" />
+                  </div>
+                  <span v-if="row.phase === 'phase1' || row.phase === 'phase2'" class="hm-prog-label mono" :class="row.barIsNeg ? 'hpl-negative' : ''">
+                    {{ pct(row.phaseProgressPct * 100, 1) }} / {{ pct(row.phaseTarget * 100, 0) }}
+                  </span>
+                  <span v-else-if="row.phase === 'funded'" class="hm-prog-label hpl-funded mono">
+                    {{ pct(row.phaseProgressPct * 100, 1) }}
+                    <span class="hm-take-home"
+                      :data-tooltip="`Month gross: ${fmtMoney(row.pnlPct * hydroChallenge.initBal)} × 90% (HyroTrader split)`">
+                      {{ fmtMoney(row.pnlPct * hydroChallenge.initBal * 0.9) }}
+                    </span>
+                  </span>
+                </td>
+                <td class="num mono" :class="row.pnlPct >= 0 ? 'positive' : 'negative'">{{ pct(row.pnlPct * 100, 1) }}</td>
+                <td class="num mono" :class="row.worstDayPct < -HYDRO.maxDailyLoss ? 'negative' : ''">{{ pct(row.worstDayPct * 100, 1) }}</td>
+                <td class="num mono" :class="row.maxLossFromInitPct > HYDRO.maxTotalLoss ? 'negative' : ''">
+                  {{ row.maxLossFromInitPct > 0.001 ? pct(-row.maxLossFromInitPct * 100, 1) : '—' }}
+                </td>
+                <td class="num mono">{{ row.tradingDays }}</td>
+                <td>
+                  <span v-if="!row.bustReason" class="hm-ok">✓</span>
+                  <span v-else class="hm-fail" :title="row.bustReason">✗ {{ row.bustReason }}</span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      </details>
     </section>
 
     <!-- ── Additional statistics ────────────────────────── -->
@@ -1923,5 +2302,246 @@ const runDate = computed(() => {
   font-weight: 700;
   color: var(--vp-c-text-1);
   text-align: right;
+}
+
+/* ── HyroTrader Challenge Section ────────────────────────── */
+.hydro-details { border: none; }
+.hydro-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 8px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.hydro-summary:hover {
+  background: var(--vp-c-bg-soft);
+  border-color: var(--vp-c-brand-1);
+}
+.hydro-summary::-webkit-details-marker { display: none; }
+.hydro-summary::marker { display: none; }
+.hydro-summary .section-title {
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.hydro-summary .section-title::after {
+  content: '▸';
+  font-size: 0.7em;
+  color: var(--vp-c-text-3);
+  transition: transform 0.15s;
+}
+.hydro-details[open] .hydro-summary .section-title::after {
+  transform: rotate(90deg);
+}
+.hydro-details[open] .hydro-summary {
+  border-radius: 8px 8px 0 0;
+  border-bottom-color: transparent;
+  margin-bottom: 0;
+}
+.hydro-details[open] > :not(summary) {
+  border: 1px solid var(--vp-c-border);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  padding: 1rem 0.75rem 0.75rem;
+}
+
+.hydro-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+  padding-top: 0.15rem;
+}
+
+.hr-chip {
+  display: inline-block;
+  padding: 0.12rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-family: var(--vp-font-family-mono);
+  font-weight: 600;
+  background: var(--vp-c-bg-mute);
+  color: var(--vp-c-text-2);
+  border: 1px solid var(--vp-c-border);
+}
+
+.hr-chip-limit {
+  background: rgba(220, 38, 38, 0.06);
+  color: var(--bd-tier-bad);
+  border-color: rgba(220, 38, 38, 0.18);
+}
+
+.hydro-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.hydro-card {
+  flex: 1;
+  min-width: 110px;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--vp-c-border);
+  background: var(--vp-c-bg-soft);
+}
+
+.hydro-card.hc-pass { border-color: rgba(22, 163, 74, 0.30); background: rgba(22, 163, 74, 0.05); }
+.hydro-card.hc-fail { border-color: rgba(220, 38, 38, 0.25); background: rgba(220, 38, 38, 0.04); }
+.hydro-card.hc-warn { border-color: rgba(245, 158, 11, 0.30); background: rgba(245, 158, 11, 0.05); }
+
+.hc-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--vp-c-text-3);
+  margin-bottom: 0.2rem;
+}
+
+.hc-value {
+  font-family: var(--vp-font-family-mono);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--vp-c-text-1);
+  line-height: 1.1;
+}
+
+.hc-sub {
+  font-size: 0.7rem;
+  color: var(--vp-c-text-3);
+  margin-top: 0.15rem;
+  font-family: var(--vp-font-family-mono);
+}
+
+.hydro-bust-banner {
+  padding: 0.5rem 0.85rem;
+  border-radius: 6px;
+  background: rgba(220, 38, 38, 0.07);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  color: var(--bd-tier-bad);
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.85rem;
+}
+
+.hm-phase {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-family: var(--vp-font-family-mono);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hmp-phase1 { background: rgba(99,  102, 241, 0.10); color: #818cf8; }
+.hmp-phase2 { background: rgba(245, 158,  11, 0.10); color: #d97706; }
+.hmp-funded { background: rgba(22,  163,  74, 0.10); color: var(--bd-tier-good); }
+.hmp-busted { background: rgba(220,  38,  38, 0.10); color: var(--bd-tier-bad); }
+
+.hrow-bust td { background: rgba(220, 38, 38, 0.035) !important; }
+
+.hm-transition-row td { background: var(--vp-c-bg-soft) !important; }
+.hm-transition-arrow { margin: 0 4px; color: var(--vp-c-text-3); font-size: 0.8rem; }
+.hm-transition-note  { color: var(--vp-c-text-2); font-size: 0.8rem; }
+
+.hm-ok   { color: var(--bd-tier-good); font-weight: 700; font-size: 0.9rem; }
+.hm-fail { color: var(--bd-tier-bad);  font-size: 0.78rem; font-weight: 600; }
+
+.hm-progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  white-space: nowrap;
+  padding: 0.28rem 0.75rem;
+  width: 180px;
+}
+
+.hm-bipolar-wrap {
+  position: relative;
+  flex: 0 0 90px;
+  width: 90px;
+  height: 8px;
+  background: var(--vp-c-bg-mute);
+  border-radius: 9999px;
+  border: 1px solid var(--vp-c-border);
+  overflow: hidden;
+}
+
+.hm-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.hm-fill-neg    { background: var(--bd-tier-bad); }
+.hm-fill-pos    { background: var(--vp-c-brand-1); }
+.hm-fill-funded { background: var(--bd-tier-good); }
+
+.hm-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+
+.hm-marker-zero { background: var(--vp-c-text-2); opacity: 0.5; }
+.hm-marker-p1   { background: var(--bd-tier-good); opacity: 0.6; }
+.hm-marker-p2   { background: var(--bd-tier-extraordinary); opacity: 0.6; }
+
+.hm-th-progress { width: 180px; min-width: 180px; }
+
+.hm-prog-label {
+  font-size: 0.75rem;
+  color: var(--vp-c-text-2);
+  flex-shrink: 0;
+}
+
+.hpl-negative { color: var(--bd-tier-bad); }
+.hpl-funded   { color: var(--bd-tier-good); }
+.hm-take-home {
+  position: relative;
+  color: var(--vp-c-text-2);
+  font-size: 0.78rem;
+  margin-left: 0.25rem;
+  cursor: default;
+}
+.hm-take-home::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--vp-c-bg-elv);
+  color: var(--vp-c-text-1);
+  border: 1px solid var(--vp-c-border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0s;
+  z-index: 10;
+}
+.hm-take-home:hover::after { opacity: 1; }
+
+.hm-prog-funded {
+  font-size: 0.75rem;
+  color: var(--bd-tier-good);
+}
+
+.hm-prog-na {
+  font-size: 0.78rem;
+  color: var(--vp-c-text-3);
 }
 </style>
