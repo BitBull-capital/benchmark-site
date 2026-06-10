@@ -1172,6 +1172,10 @@ const runDate = computed(() => {
                       {{ fmtMoney(row.pnlPct * hydroChallenge.initBal * 0.9) }}
                     </span>
                   </span>
+                  <span v-else-if="row.phase === 'busted'" class="hm-prog-label hpl-negative mono"
+                    :data-tooltip="row.bustReason || undefined">
+                    {{ row.bustReason ? '✗ busted' : '—' }}
+                  </span>
                 </td>
                 <td class="num mono" :class="row.pnlPct >= 0 ? 'positive' : 'negative'">{{ pct(row.pnlPct * 100, 1) }}</td>
                 <td class="num mono" :class="row.worstDayPct < -HYDRO.maxDailyLoss ? 'negative' : ''">{{ pct(row.worstDayPct * 100, 1) }}</td>
