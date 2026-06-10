@@ -504,7 +504,8 @@ interface ChallengeTransitionRow {
   toPhase: 'phase2' | 'funded'
   date: string   // ISO "YYYY-MM-DD"
   barZeroPct: number
-  phasePct: number  // actual cumulative phase P&L at completion
+  phasePct: number        // cumulative phase P&L at completion
+  prevMonthEndPct: number // phase P&L at end of previous month (shows what this month contributed)
 }
 
 type ChallengeRow = ChallengeMonthRow | ChallengeTransitionRow
@@ -625,6 +626,7 @@ const hydroChallenge = computed(() => {
 
   const monthRows: ChallengeMonthRow[] = []
   const rows: ChallengeRow[] = []
+  let prevMonthPhaseEndPct = 0
   for (const [key, mDays] of monthMap2) {
     const [yr, mo] = key.split('-')
     const lastDay = mDays[mDays.length - 1]
@@ -659,13 +661,14 @@ const hydroChallenge = computed(() => {
 
     // Insert transition marker before the month where the new phase begins
     if (key === phase1EndMonthKey && phase1EndIdx >= 0) {
-      rows.push({ kind: 'transition', fromPhase: 'phase1', toPhase: 'phase2', date: days[phase1EndIdx][0], barZeroPct: 50, phasePct: simDays[phase1EndIdx].phaseProgressPct })
+      rows.push({ kind: 'transition', fromPhase: 'phase1', toPhase: 'phase2', date: days[phase1EndIdx][0], barZeroPct: 50, phasePct: simDays[phase1EndIdx].phaseProgressPct, prevMonthEndPct: prevMonthPhaseEndPct })
     }
     if (key === phase2EndMonthKey && phase2EndIdx >= 0) {
-      rows.push({ kind: 'transition', fromPhase: 'phase2', toPhase: 'funded', date: days[phase2EndIdx][0], barZeroPct: 50, phasePct: simDays[phase2EndIdx].phaseProgressPct })
+      rows.push({ kind: 'transition', fromPhase: 'phase2', toPhase: 'funded', date: days[phase2EndIdx][0], barZeroPct: 50, phasePct: simDays[phase2EndIdx].phaseProgressPct, prevMonthEndPct: prevMonthPhaseEndPct })
     }
 
     rows.push(monthRow)
+    prevMonthPhaseEndPct = monthRow.phaseProgressPct
   }
 
   const fundedStartKey = phase2EndIdx >= 0 ? days[phase2EndIdx][0].slice(0, 7) : null
@@ -1059,6 +1062,7 @@ const runDate = computed(() => {
           </div>
         </summary>
 
+      <div class="hydro-body">
       <!-- Summary cards -->
       <div class="hydro-cards">
         <div class="hydro-card" :class="hydroChallenge.phase1CalDays >= 0 ? 'hc-pass' : 'hc-fail'">
@@ -1129,10 +1133,15 @@ const runDate = computed(() => {
                   </div>
                   <span class="hm-prog-label mono" :class="row.toPhase === 'funded' ? 'hpl-funded' : ''">
                     {{ pct(row.phasePct * 100, 1) }} ✓
+                    <span class="hm-completion-target">/ {{ pct((row.fromPhase === 'phase1' ? HYDRO.phase1Target : HYDRO.phase2Target) * 100, 0) }}</span>
                   </span>
                 </td>
-                <td colspan="5" class="hm-transition-note">
-                  {{ row.fromPhase === 'phase1' ? 'Challenge passed' : 'Funded 🎉' }}
+                <!-- Month P&L: phase gain accumulated this calendar month up to the transition day -->
+                <td class="num mono hm-transition-month-gain">
+                  {{ pct((row.phasePct - row.prevMonthEndPct) * 100, 1) }}
+                </td>
+                <td colspan="4" class="hm-transition-note">
+                  {{ row.fromPhase === 'phase1' ? 'Phase 1 complete' : 'Funded 🎉' }}
                 </td>
               </tr>
               <!-- Regular month row -->
@@ -1157,7 +1166,8 @@ const runDate = computed(() => {
                   </span>
                   <span v-else-if="row.phase === 'funded'" class="hm-prog-label hpl-funded mono">
                     {{ pct(row.phaseProgressPct * 100, 1) }}
-                    <span class="hm-take-home"
+                    <span class="hm-take-home-sep">·</span>
+                    <span class="hm-take-home" :class="row.pnlPct >= 0 ? 'htm-pos' : 'htm-neg'"
                       :data-tooltip="`Month gross: ${fmtMoney(row.pnlPct * hydroChallenge.initBal)} × 90% (HyroTrader split)`">
                       {{ fmtMoney(row.pnlPct * hydroChallenge.initBal * 0.9) }}
                     </span>
@@ -1178,6 +1188,7 @@ const runDate = computed(() => {
           </tbody>
         </table>
       </div>
+      </div><!-- /hydro-body -->
       </details>
     </section>
 
@@ -2345,7 +2356,7 @@ const runDate = computed(() => {
   border-bottom-color: transparent;
   margin-bottom: 0;
 }
-.hydro-details[open] > :not(summary) {
+.hydro-body {
   border: 1px solid var(--vp-c-border);
   border-top: none;
   border-radius: 0 0 8px 8px;
@@ -2452,7 +2463,20 @@ const runDate = computed(() => {
 
 .hm-transition-row td { background: var(--vp-c-bg-soft) !important; }
 .hm-transition-arrow { margin: 0 4px; color: var(--vp-c-text-3); font-size: 0.8rem; }
-.hm-transition-note  { color: var(--vp-c-text-2); font-size: 0.8rem; }
+.hm-transition-note  { color: var(--vp-c-text-2); font-size: 0.8rem; font-style: italic; }
+
+.hm-completion-target {
+  font-size: 0.7rem;
+  color: var(--vp-c-text-3);
+  font-weight: 400;
+  margin-left: 0.25rem;
+}
+
+.hm-transition-month-gain {
+  color: var(--bd-positive);
+  font-weight: 600;
+  white-space: nowrap;
+}
 
 .hm-ok   { color: var(--bd-tier-good); font-weight: 700; font-size: 0.9rem; }
 .hm-fail { color: var(--bd-tier-bad);  font-size: 0.78rem; font-weight: 600; }
@@ -2507,12 +2531,18 @@ const runDate = computed(() => {
 }
 
 .hpl-negative { color: var(--bd-tier-bad); }
-.hpl-funded   { color: var(--bd-tier-good); }
+.hpl-funded   { color: var(--bd-tier-good); font-weight: 700; }
+.hm-take-home-sep {
+  color: var(--vp-c-text-3);
+  margin: 0 0.2rem;
+  font-weight: 300;
+}
+
 .hm-take-home {
   position: relative;
   color: var(--vp-c-text-2);
-  font-size: 0.78rem;
-  margin-left: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 400;
   cursor: default;
 }
 .hm-take-home::after {
@@ -2534,6 +2564,8 @@ const runDate = computed(() => {
   z-index: 10;
 }
 .hm-take-home:hover::after { opacity: 1; }
+.hm-take-home.htm-pos { color: var(--bd-positive); }
+.hm-take-home.htm-neg { color: var(--bd-negative); }
 
 .hm-prog-funded {
   font-size: 0.75rem;

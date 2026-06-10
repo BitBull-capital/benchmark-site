@@ -263,6 +263,9 @@ function sparklineColor(curve: number[]): string {
               <th class="sortable grade-th" @click="toggleSort(group.tf, 'score')">
                 Grade <span class="sort-icon">{{ sortIcon(group.tf, 'score') }}</span>
               </th>
+              <th class="sortable fundable-th" @click="toggleSort(group.tf, 'fundable')">
+                Hyro <span class="sort-icon">{{ sortIcon(group.tf, 'fundable') }}</span>
+              </th>
               <th class="sortable" @click="toggleSort(group.tf, 'timeframe')">
                 TF <span class="sort-icon">{{ sortIcon(group.tf, 'timeframe') }}</span>
               </th>
@@ -323,6 +326,9 @@ function sparklineColor(curve: number[]): string {
               <td class="grade-td">
                 <span class="grade-badge" :class="gradeClass(b.grade)">{{ b.grade }}</span>
               </td>
+              <td class="fundable-td">
+                <span :class="b.fundable ? 'fundable-yes' : 'fundable-no'">{{ b.fundable ? '✓' : '✗' }}</span>
+              </td>
               <td>
                 <span class="timeframe-badge">{{ b.timeframe }}</span>
               </td>
@@ -362,7 +368,7 @@ function sparklineColor(curve: number[]): string {
             </tr>
 
             <tr v-if="group.rows.length === 0" class="empty-row">
-              <td colspan="15" class="empty-tf">No runs yet</td>
+              <td colspan="16" class="empty-tf">No runs yet</td>
             </tr>
           </tbody>
         </table>
@@ -793,4 +799,26 @@ function sparklineColor(curve: number[]): string {
 .grade-badge.g-d     { color: var(--bd-grade-d);    background: var(--bd-grade-d-bg); }
 .grade-badge.g-e     { color: var(--bd-grade-e);    background: var(--bd-grade-e-bg); }
 .grade-badge.g-f     { color: var(--bd-grade-f);    background: var(--bd-grade-f-bg); }
+
+/* ── Fundable column ─────────────────────────────────── */
+.benchmark-table th.fundable-th {
+  text-align: center;
+  min-width: 5rem;
+}
+
+.benchmark-table td.fundable-td {
+  text-align: center;
+  padding: 0.32rem 0.6rem;
+}
+
+.fundable-yes {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--bd-positive);
+}
+
+.fundable-no {
+  font-size: 0.9rem;
+  color: var(--vp-c-text-3);
+}
 </style>

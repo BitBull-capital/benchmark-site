@@ -33,6 +33,8 @@ export interface BenchmarkSummary {
   score: number
   /** Letter grade derived from score: A+/A/A-/B+/B/B-/C/D/F */
   grade: string
+  /** Whether the strategy would pass the HyroTrader 2-step challenge */
+  fundable: boolean
 }
 
 // ── Scoring system ────────────────────────────────────────────────────────────
@@ -108,6 +110,46 @@ function buildEquityCurve(trades: any[], startingBalance: number): number[] {
   return downsample(curve)
 }
 
+// ── HyroTrader fundability check ─────────────────────────────────────────────
+const HYDRO = { phase1Target: 0.10, phase2Target: 0.05, maxDailyLoss: 0.05, maxTotalLoss: 0.10, phase1MinDays: 10, phase2MinDays: 5 }
+
+function calcFundable(trades: any[], initBal: number): boolean {
+  if (!initBal || !trades?.length) return false
+  const closed = trades.filter((t: any) => !t.is_open)
+  if (!closed.length) return false
+
+  const dayMap = new Map<string, number>()
+  for (const t of closed) {
+    const ts = t.close_timestamp
+    const d = new Date(ts > 1e10 ? ts : ts * 1000).toISOString().slice(0, 10)
+    dayMap.set(d, (dayMap.get(d) ?? 0) + (t.profit_abs ?? 0))
+  }
+  const days = [...dayMap.entries()].sort(([a], [b]) => a.localeCompare(b))
+
+  let bal = initBal, phaseStartBal = initBal, phasePnl = 0, tradingDays = 0
+  let phase: 'phase1' | 'phase2' | 'funded' | 'busted' = 'phase1'
+
+  for (const [, pnlAbs] of days) {
+    const pnlPct = pnlAbs / initBal
+    bal += pnlAbs
+    const lossFromInit = Math.max(0, (initBal - bal) / initBal)
+
+    if (phase !== 'funded' && phase !== 'busted') {
+      if (pnlPct < -HYDRO.maxDailyLoss || lossFromInit > HYDRO.maxTotalLoss) { phase = 'busted'; break }
+    }
+
+    if (pnlAbs !== 0) tradingDays++
+    phasePnl += pnlAbs
+
+    if (phase === 'phase1' && phasePnl / phaseStartBal >= HYDRO.phase1Target && tradingDays >= HYDRO.phase1MinDays) {
+      phase = 'phase2'; phaseStartBal = bal; phasePnl = 0; tradingDays = 0
+    } else if (phase === 'phase2' && phasePnl / phaseStartBal >= HYDRO.phase2Target && tradingDays >= HYDRO.phase2MinDays) {
+      phase = 'funded'; break
+    }
+  }
+  return phase === 'funded'
+}
+
 export default {
   load(): BenchmarkSummary[] {
     const dataDir = path.resolve(__dirname, 'public/benchmarks-data')
@@ -170,6 +212,7 @@ export default {
             equityCurve: buildEquityCurve(s.trades, s.starting_balance ?? 0),
             score,
             grade,
+            fundable: calcFundable(s.trades, s.starting_balance ?? 0),
           })
         }
       } catch (e) {
