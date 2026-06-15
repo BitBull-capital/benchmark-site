@@ -160,9 +160,6 @@ const exitReasonRows = computed(() =>
 
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
-const fmtMoney = (v: number) =>
-  (v >= 0 ? '+' : '') + v.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
-
 const formatTransitionDate = (iso: string) => {
   const [yr, mo, dy] = iso.split('-')
   return `${MONTH_NAMES[parseInt(mo, 10) - 1]} ${parseInt(dy, 10)}, ${yr}`
@@ -1168,8 +1165,8 @@ const runDate = computed(() => {
                     {{ pct(row.phaseProgressPct * 100, 1) }}
                     <span class="hm-take-home-sep">·</span>
                     <span class="hm-take-home" :class="row.pnlPct >= 0 ? 'htm-pos' : 'htm-neg'"
-                      :data-tooltip="`Month gross: ${fmtMoney(row.pnlPct * hydroChallenge.initBal)} × 90% (HyroTrader split)`">
-                      {{ fmtMoney(row.pnlPct * hydroChallenge.initBal * 0.9) }}
+                      :data-tooltip="`Month gross: ${fmtAbs(row.pnlPct * hydroChallenge.initBal)} × 90% (HyroTrader split)`">
+                      {{ fmtAbs(row.pnlPct * hydroChallenge.initBal * 0.9) }}
                     </span>
                   </span>
                   <span v-else-if="row.phase === 'busted'" class="hm-prog-label hpl-negative mono"
