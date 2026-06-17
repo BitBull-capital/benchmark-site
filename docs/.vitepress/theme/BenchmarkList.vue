@@ -693,9 +693,10 @@ function sparklineColor(curve: number[]): string {
 .compare-btn:hover { background: var(--vp-c-brand-1); color: #fff; }
 
 .check-th { width: 2rem; padding: 0 0.4rem !important; }
-.check-td { width: 2rem; padding: 0 0.4rem !important; text-align: center; }
+.check-td { width: 2rem; padding: 0 0.4rem !important; text-align: center; vertical-align: middle; }
 
 .row-check {
+  display: block;
   width: 1rem;
   height: 1rem;
   cursor: pointer;
