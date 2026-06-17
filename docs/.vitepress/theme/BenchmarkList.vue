@@ -166,6 +166,10 @@ function compareSelected() {
   }
 }
 
+const maxStrategyLen = computed(() =>
+  props.benchmarks.reduce((max, b) => Math.max(max, b.strategy.length), 0)
+)
+
 const MEDALS = ['🥇', '🥈', '🥉'] as const
 
 // ── Grade ──────────────────────────────────────────────
@@ -195,7 +199,7 @@ function sparklineColor(curve: number[]): string {
 </script>
 
 <template>
-  <div class="benchmark-list">
+  <div class="benchmark-list" :style="{ '--strat-chars': maxStrategyLen }">
     <h1 class="page-title">Benchmark Hub</h1>
 
     <!-- Toolbar -->
@@ -257,7 +261,7 @@ function sparklineColor(curve: number[]): string {
             <tr>
               <th class="check-th"></th>
               <th class="medal-th">#</th>
-              <th class="sortable" @click="toggleSort(group.tf, 'strategy')">
+              <th class="sortable strategy-th" @click="toggleSort(group.tf, 'strategy')">
                 Strategy <span class="sort-icon">{{ sortIcon(group.tf, 'strategy') }}</span>
               </th>
               <th class="sortable grade-th" @click="toggleSort(group.tf, 'score')">
@@ -604,6 +608,11 @@ function sparklineColor(curve: number[]): string {
 .mono {
   font-family: var(--vp-font-family-mono);
   font-size: 0.82rem;
+}
+
+/* ── Strategy column — width locked to the longest name across all groups ── */
+.strategy-th {
+  min-width: calc(var(--strat-chars) * 1ch + 8ch);
 }
 
 /* ── Badges ──────────────────────────────────────────── */
