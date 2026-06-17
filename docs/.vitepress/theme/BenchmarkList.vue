@@ -331,7 +331,7 @@ function sparklineColor(curve: number[]): string {
                 <span class="grade-badge" :class="gradeClass(b.grade)">{{ b.grade }}</span>
               </td>
               <td class="fundable-td">
-                <span :class="b.fundable ? 'fundable-yes' : 'fundable-no'">{{ b.fundable ? '✓' : '✗' }}</span>
+                <span :class="b.fundable === 'yes' ? 'fundable-yes' : b.fundable === 'partial' ? 'fundable-partial' : 'fundable-no'">{{ b.fundable === 'yes' ? '✓' : b.fundable === 'partial' ? '~' : '✗' }}</span>
               </td>
               <td class="col-tf">
                 <span class="timeframe-badge">{{ b.timeframe }}</span>
@@ -818,6 +818,12 @@ function sparklineColor(curve: number[]): string {
   font-weight: 700;
   font-size: 0.9rem;
   color: var(--bd-positive);
+}
+
+.fundable-partial {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--bd-tier-ok);
 }
 
 .fundable-no {

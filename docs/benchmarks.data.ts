@@ -33,8 +33,8 @@ export interface BenchmarkSummary {
   score: number
   /** Letter grade derived from score: A+/A/A-/B+/B/B-/C/D/F */
   grade: string
-  /** Whether the strategy would pass the HyroTrader 2-step challenge */
-  fundable: boolean
+  /** HyroTrader 2-step challenge outcome: 'yes' = funded & stable, 'partial' = funded then busted, 'no' = never funded */
+  fundable: 'yes' | 'partial' | 'no'
 }
 
 // ── Scoring system ────────────────────────────────────────────────────────────
@@ -113,10 +113,10 @@ function buildEquityCurve(trades: any[], startingBalance: number): number[] {
 // ── HyroTrader fundability check ─────────────────────────────────────────────
 const HYDRO = { phase1Target: 0.10, phase2Target: 0.05, maxDailyLoss: 0.05, maxTotalLoss: 0.10, phase1MinDays: 10, phase2MinDays: 5 }
 
-function calcFundable(trades: any[], initBal: number): boolean {
-  if (!initBal || !trades?.length) return false
+function calcFundable(trades: any[], initBal: number): 'yes' | 'partial' | 'no' {
+  if (!initBal || !trades?.length) return 'no'
   const closed = trades.filter((t: any) => !t.is_open)
-  if (!closed.length) return false
+  if (!closed.length) return 'no'
 
   const dayMap = new Map<string, number>()
   for (const t of closed) {
@@ -128,13 +128,14 @@ function calcFundable(trades: any[], initBal: number): boolean {
 
   let bal = initBal, phaseStartBal = initBal, phasePnl = 0, tradingDays = 0
   let phase: 'phase1' | 'phase2' | 'funded' | 'busted' = 'phase1'
+  let reachedFunded = false
 
   for (const [, pnlAbs] of days) {
     const pnlPct = pnlAbs / initBal
     bal += pnlAbs
     const lossFromInit = Math.max(0, (initBal - bal) / initBal)
 
-    if (phase !== 'funded' && phase !== 'busted') {
+    if (phase !== 'busted') {
       if (pnlPct < -HYDRO.maxDailyLoss || lossFromInit > HYDRO.maxTotalLoss) { phase = 'busted'; break }
     }
 
@@ -144,10 +145,13 @@ function calcFundable(trades: any[], initBal: number): boolean {
     if (phase === 'phase1' && phasePnl / phaseStartBal >= HYDRO.phase1Target && tradingDays >= HYDRO.phase1MinDays) {
       phase = 'phase2'; phaseStartBal = bal; phasePnl = 0; tradingDays = 0
     } else if (phase === 'phase2' && phasePnl / phaseStartBal >= HYDRO.phase2Target && tradingDays >= HYDRO.phase2MinDays) {
-      phase = 'funded'; break
+      reachedFunded = true
+      phase = 'funded'; phaseStartBal = bal; phasePnl = 0; tradingDays = 0
     }
   }
-  return phase === 'funded'
+  if (phase === 'funded') return 'yes'
+  if (reachedFunded) return 'partial'
+  return 'no'
 }
 
 export default {
