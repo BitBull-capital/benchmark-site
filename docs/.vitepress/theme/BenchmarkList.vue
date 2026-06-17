@@ -270,29 +270,29 @@ function sparklineColor(curve: number[]): string {
               <th class="sortable fundable-th" @click="toggleSort(group.tf, 'fundable')">
                 Hyro <span class="sort-icon">{{ sortIcon(group.tf, 'fundable') }}</span>
               </th>
-              <th class="sortable" @click="toggleSort(group.tf, 'timeframe')">
+              <th class="sortable col-tf" @click="toggleSort(group.tf, 'timeframe')">
                 TF <span class="sort-icon">{{ sortIcon(group.tf, 'timeframe') }}</span>
               </th>
               <th class="trend-th" title="Profit trend across runs of the same strategy &amp; timeframe">Trend</th>
-              <th class="sortable" @click="toggleSort(group.tf, 'backtestDays')">
+              <th class="sortable col-period" @click="toggleSort(group.tf, 'backtestDays')">
                 Period <span class="sort-icon">{{ sortIcon(group.tf, 'backtestDays') }}</span>
               </th>
-              <th class="sortable" @click="toggleSort(group.tf, 'date')">
+              <th class="sortable col-date" @click="toggleSort(group.tf, 'date')">
                 Date <span class="sort-icon">{{ sortIcon(group.tf, 'date') }}</span>
               </th>
               <th class="sortable num" @click="toggleSort(group.tf, 'profit')">
                 Profit % <span class="sort-icon">{{ sortIcon(group.tf, 'profit') }}</span>
               </th>
-              <th class="sortable num" @click="toggleSort(group.tf, 'profitUsdt')">
+              <th class="sortable num col-pnl" @click="toggleSort(group.tf, 'profitUsdt')">
                 PnL {{ currency }} <span class="sort-icon">{{ sortIcon(group.tf, 'profitUsdt') }}</span>
               </th>
-              <th class="sortable num" @click="toggleSort(group.tf, 'totalTrades')">
+              <th class="sortable num col-trades" @click="toggleSort(group.tf, 'totalTrades')">
                 Trades <span class="sort-icon">{{ sortIcon(group.tf, 'totalTrades') }}</span>
               </th>
-              <th class="sortable num" @click="toggleSort(group.tf, 'winRate')">
+              <th class="sortable num col-winrate" @click="toggleSort(group.tf, 'winRate')">
                 Win Rate <span class="sort-icon">{{ sortIcon(group.tf, 'winRate') }}</span>
               </th>
-              <th class="sortable num" @click="toggleSort(group.tf, 'sharpe')">
+              <th class="sortable num col-sharpe" @click="toggleSort(group.tf, 'sharpe')">
                 Sharpe <span class="sort-icon">{{ sortIcon(group.tf, 'sharpe') }}</span>
               </th>
               <th class="sortable num" @click="toggleSort(group.tf, 'maxDrawdown')">
@@ -324,7 +324,7 @@ function sparklineColor(curve: number[]): string {
                 />
                 <span v-else class="row-num">{{ idx + 1 }}</span>
               </td>
-              <td>
+              <td class="strategy-td">
                 <span class="strategy-badge">{{ b.strategy }}</span>
               </td>
               <td class="grade-td">
@@ -333,7 +333,7 @@ function sparklineColor(curve: number[]): string {
               <td class="fundable-td">
                 <span :class="b.fundable ? 'fundable-yes' : 'fundable-no'">{{ b.fundable ? '✓' : '✗' }}</span>
               </td>
-              <td>
+              <td class="col-tf">
                 <span class="timeframe-badge">{{ b.timeframe }}</span>
               </td>
               <td class="trend-td">
@@ -349,20 +349,20 @@ function sparklineColor(curve: number[]): string {
                 </svg>
               </td>
               <td class="mono period-cell">{{ formatPeriod(b.backtestDays) }}</td>
-              <td class="mono">{{ formatDate(b.date) }}</td>
+              <td class="mono col-date">{{ formatDate(b.date) }}</td>
               <td class="num">
                 <span class="profit-pill" :class="profitClass(b.profit)">
                   {{ formatPct(b.profit) }}
                 </span>
               </td>
-              <td class="mono num" :class="profitClass(b.profitUsdt)">
+              <td class="mono num col-pnl" :class="profitClass(b.profitUsdt)">
                 {{ b.profitUsdt != null ? fmtPnl(b.profitUsdt) : '—' }}
               </td>
-              <td class="mono num">{{ b.totalTrades?.toLocaleString() ?? '—' }}</td>
-              <td class="mono num">
+              <td class="mono num col-trades">{{ b.totalTrades?.toLocaleString() ?? '—' }}</td>
+              <td class="mono num col-winrate">
                 {{ b.winRate != null ? b.winRate.toFixed(1) + '%' : '—' }}
               </td>
-              <td class="mono num">{{ b.sharpe?.toFixed(2) ?? '—' }}</td>
+              <td class="mono num col-sharpe">{{ b.sharpe?.toFixed(2) ?? '—' }}</td>
               <td class="mono num" :class="profitClass(b.maxDrawdown)">
                 {{ b.maxDrawdown != null ? b.maxDrawdown.toFixed(2) + '%' : '—' }}
               </td>
@@ -610,10 +610,6 @@ function sparklineColor(curve: number[]): string {
   font-size: 0.82rem;
 }
 
-/* ── Strategy column — width locked to the longest name across all groups ── */
-.strategy-th {
-  min-width: calc(var(--strat-chars) * 1ch + 8ch);
-}
 
 /* ── Badges ──────────────────────────────────────────── */
 .strategy-badge {
@@ -829,5 +825,20 @@ function sparklineColor(curve: number[]): string {
 .fundable-no {
   font-size: 0.9rem;
   color: var(--vp-c-text-3);
+}
+
+/* ── Strategy column — width locked to the longest name across all groups ── */
+.strategy-th {
+  min-width: calc(var(--strat-chars) * 1ch + 8ch);
+}
+
+/* ── Responsive: constrain strategy column on small screens ─────── */
+@media (max-width: 768px) {
+  .strategy-th { min-width: 0; }
+  .strategy-badge {
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 </style>
