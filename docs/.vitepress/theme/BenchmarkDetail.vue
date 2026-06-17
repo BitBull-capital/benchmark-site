@@ -546,7 +546,7 @@ const hydroChallenge = computed(() => {
     const pnlPct = pnlAbs / initBal
     let bustReason = ''
 
-    if (phase !== 'funded' && phase !== 'busted') {
+    if (phase !== 'busted') {
       if (pnlPct < -HYDRO.maxDailyLoss)
         bustReason = `Daily loss −${(-pnlPct * 100).toFixed(1)}% > 5% limit`
     }
@@ -554,7 +554,7 @@ const hydroChallenge = computed(() => {
     balance += pnlAbs
     const lossFromInitPct = Math.max(0, (initBal - balance) / initBal)
 
-    if (!bustReason && phase !== 'funded' && phase !== 'busted') {
+    if (!bustReason && phase !== 'busted') {
       if (lossFromInitPct > HYDRO.maxTotalLoss)
         bustReason = `Total loss −${(lossFromInitPct * 100).toFixed(1)}% > 10% limit`
     }
@@ -1077,7 +1077,7 @@ const runDate = computed(() => {
           <div class="hc-value">{{ hydroChallenge.totalCalDays >= 0 ? hydroChallenge.totalCalDays + 'd' : '—' }}</div>
           <div class="hc-sub">
             <span v-if="hydroChallenge.totalCalDays >= 0">≈ {{ Math.round(hydroChallenge.totalCalDays / 7) }}w</span>
-            <span v-else>busted in {{ hydroChallenge.bustPhase === 'phase1' ? 'Phase 1' : 'Phase 2' }}</span>
+            <span v-else>busted in {{ hydroChallenge.bustPhase === 'phase1' ? 'Phase 1' : hydroChallenge.bustPhase === 'phase2' ? 'Phase 2' : 'Funded' }}</span>
           </div>
         </div>
         <div v-if="hydroChallenge.funded" class="hydro-card" :class="hydroChallenge.fundedMonthsPass === hydroChallenge.fundedMonthsTotal ? 'hc-pass' : hydroChallenge.fundedMonthsPass > 0 ? 'hc-warn' : 'hc-fail'">
