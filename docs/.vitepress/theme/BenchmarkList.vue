@@ -67,7 +67,7 @@ function tfRank(tf: string) {
 }
 
 // Timeframes that always get a section, even when empty
-const PINNED_TFS = ['1m', '5m', '15m', '30m']
+const PINNED_TFS = ['1m', '5m', '15m', '30m', '1h']
 
 const filtered = computed(() => {
   let items = [...props.benchmarks]
