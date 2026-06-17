@@ -788,7 +788,7 @@ function sparklineColor(curve: number[]): string {
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  padding: 0.15rem 0.45rem;
+  padding: 0.02rem 0.45rem;
   border-radius: 4px;
   background: var(--vp-c-bg-mute);
   color: var(--vp-c-text-2);
