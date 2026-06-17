@@ -555,7 +555,7 @@ function sparklineColor(curve: number[]): string {
 }
 
 .benchmark-table th {
-  padding: 0.32rem 0.85rem;
+  padding: 0.18rem 0.6rem;
   text-align: left;
   font-weight: 600;
   color: var(--vp-c-text-2);
@@ -570,7 +570,6 @@ function sparklineColor(curve: number[]): string {
 
 .benchmark-table th.num {
   text-align: right;
-  min-width: 5.5rem;
 }
 
 .benchmark-table th.sortable { cursor: pointer; }
@@ -595,7 +594,7 @@ function sparklineColor(curve: number[]): string {
 .benchmark-row:hover { background: var(--vp-c-bg-soft); }
 
 .benchmark-table td {
-  padding: 0.32rem 0.85rem;
+  padding: 0.18rem 0.6rem;
   color: var(--vp-c-text-1);
   vertical-align: middle;
   white-space: nowrap;
@@ -615,7 +614,7 @@ function sparklineColor(curve: number[]): string {
 .strategy-badge {
   display: inline-block;
   vertical-align: middle;
-  padding: 0.2rem 0.65rem;
+  padding: 0.02rem 0.65rem;
   background: var(--vp-c-brand-soft);
   color: var(--vp-c-brand-1);
   border-radius: 5px;
@@ -776,12 +775,11 @@ function sparklineColor(curve: number[]): string {
 /* ── Grade column ────────────────────────────────────── */
 .grade-th {
   text-align: center;
-  min-width: 4rem;
 }
 
 .grade-td {
   text-align: center;
-  padding: 0.32rem 0.6rem;
+  padding: 0.18rem 0.6rem;
 }
 
 .grade-badge {
@@ -808,12 +806,11 @@ function sparklineColor(curve: number[]): string {
 /* ── Fundable column ─────────────────────────────────── */
 .benchmark-table th.fundable-th {
   text-align: center;
-  min-width: 5rem;
 }
 
 .benchmark-table td.fundable-td {
   text-align: center;
-  padding: 0.32rem 0.6rem;
+  padding: 0.18rem 0.6rem;
 }
 
 .fundable-yes {
@@ -827,9 +824,11 @@ function sparklineColor(curve: number[]): string {
   color: var(--vp-c-text-3);
 }
 
-/* ── Strategy column — width locked to the longest name across all groups ── */
+/* ── Strategy column — expands to fill remaining table width ── */
+/* 1.5ch per char accounts for wide uppercase letters (vs the narrow '0' that 1ch measures) */
 .strategy-th {
-  min-width: calc(var(--strat-chars) * 1ch + 8ch);
+  width: 100%;
+  min-width: calc(var(--strat-chars) * 1.5ch);
 }
 
 /* ── Responsive: constrain strategy column on small screens ─────── */

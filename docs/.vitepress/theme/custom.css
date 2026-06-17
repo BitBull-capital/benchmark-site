@@ -63,7 +63,7 @@
 
 /* Both pages use layout: page */
 .VPPage {
-  max-width: 1700px;
+  max-width: 1500px;
   margin: 0 auto;
   padding: 0 1.25rem;
 }
