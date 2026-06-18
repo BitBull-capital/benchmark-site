@@ -476,7 +476,7 @@ const HYDRO = {
   phase2Target:  0.05,
   maxDailyLoss:  0.05,
   maxTotalLoss:  0.10,
-  phase1MinDays: 10,
+  phase1MinDays: 5,
   phase2MinDays: 5,
 } as const
 
