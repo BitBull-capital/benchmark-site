@@ -43,7 +43,7 @@ const SCORE_WEIGHTS = { sharpe: 0.40, profit: 0.30, drawdown: 0.30 }
 // Anchors: [lower (worst acceptable → score 0), upper (excellent cap → score 100)]
 // Values outside the range are clamped (no bonus above upper, no penalty below lower).
 const SCORE_ANCHORS = {
-  sharpe:   { lower: 0.5, upper: 2.5 },
+  sharpe:   { lower: 0.5, upper: 2.0 },
   profit:   { lower: 0.0, upper: 0.5 },   // raw fractions; 50 % return caps at 100
   drawdown: { lower: 0.25, upper: 0.05 }, // raw fraction; lower=worse (25 % bad, 5 % excellent)
 }
