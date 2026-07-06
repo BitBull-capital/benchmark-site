@@ -322,7 +322,7 @@ const METRIC_SCALES: Record<string, number[]> = {
   totalProfit:  [-Infinity,  0.05,  0.20,  0.50,  1.00,  2.00],
   cagr:         [-Infinity,  0.05,  0.15,  0.30,  0.50,  1.00],
   winrate:      [-Infinity,  0.45,  0.55,  0.65,  0.75,  0.80],
-  sharpe:       [-Infinity,  0.5,   1.0,   1.5,   2.0,   3.0 ],
+  sharpe:       [-Infinity,  0.5,   1.0,   1.5,   2.0,   2.0 ],
   sortino:      [-Infinity,  0.5,   1.0,   2.0,   3.0,   5.0 ],
   calmar:       [-Infinity,  0.2,   0.5,   1.0,   2.0,   4.0 ],
   drawdown:     [-Infinity, -0.30, -0.20, -0.10, -0.05, -0.02],
@@ -384,7 +384,7 @@ function exitBadgeClass(key: string, winrate: number) {
 
 // ── Grade breakdown ───────────────────────────────────
 const GRADE_ANCHORS = {
-  sharpe:   { lower: 0.5, upper: 2.5 },
+  sharpe:   { lower: 0.5, upper: 2.0 },
   profit:   { lower: 0.0, upper: 0.5 },
   drawdown: { lower: 0.25, upper: 0.05 },
 }
