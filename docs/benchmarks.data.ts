@@ -44,8 +44,8 @@ const SCORE_WEIGHTS = { sharpe: 0.40, profit: 0.30, drawdown: 0.30 }
 // Values outside the range are clamped (no bonus above upper, no penalty below lower).
 const SCORE_ANCHORS = {
   sharpe:   { lower: 0.5, upper: 2.0 },
-  profit:   { lower: 0.0, upper: 0.5 },   // raw fractions; 50 % return caps at 100
-  drawdown: { lower: 0.25, upper: 0.05 }, // raw fraction; lower=worse (25 % bad, 5 % excellent)
+  profit:   { lower: 0.0, upper: 2.0 },   // raw fractions; 200 % return caps at 100
+  drawdown: { lower: 0.25, upper: 0.02 }, // raw fraction; lower=worse (25 % bad, 2 % excellent)
 }
 const DEAL_BREAKERS = { minTrades: 30, maxDrawdown: 0.50 }
 

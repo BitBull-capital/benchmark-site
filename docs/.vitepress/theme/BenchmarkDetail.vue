@@ -385,8 +385,8 @@ function exitBadgeClass(key: string, winrate: number) {
 // ── Grade breakdown ───────────────────────────────────
 const GRADE_ANCHORS = {
   sharpe:   { lower: 0.5, upper: 2.0 },
-  profit:   { lower: 0.0, upper: 0.5 },
-  drawdown: { lower: 0.25, upper: 0.05 },
+  profit:   { lower: 0.0, upper: 2.0 },
+  drawdown: { lower: 0.25, upper: 0.02 },
 }
 const GRADE_WEIGHTS = { sharpe: 0.40, profit: 0.30, drawdown: 0.30 }
 const GRADE_DEAL_BREAKERS = { minTrades: 30, maxDrawdown: 0.50 }
