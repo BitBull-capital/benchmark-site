@@ -410,6 +410,17 @@ function gradeFromScore(score: number): string {
   return 'E'
 }
 
+// Ordered worst → best; `min` is the score needed to reach that grade.
+const GRADE_SCALE = [
+  { grade: 'E',  min: 0  },
+  { grade: 'D',  min: 20 },
+  { grade: 'C',  min: 35 },
+  { grade: 'B',  min: 50 },
+  { grade: 'A',  min: 65 },
+  { grade: 'S',  min: 80 },
+  { grade: 'S+', min: 90 },
+]
+
 const GRADE_CLASS_MAP: Record<string, string> = {
   'S+': 'g-splus', 'S': 'g-s', 'A': 'g-a',
   'B': 'g-b', 'C': 'g-c', 'D': 'g-d', 'E': 'g-e', 'F': 'g-f',
@@ -987,6 +998,17 @@ const runDate = computed(() => {
         </span>
         <span v-if="gradeBreakdown.passed" class="grade-total-score-pill">
           {{ gradeBreakdown.totalScore }} / 100
+        </span>
+        <span class="grade-scale-row">
+          <span
+            v-for="g in GRADE_SCALE"
+            :key="g.grade"
+            class="grade-scale-chip"
+            :class="[gradeBadgeClass(g.grade), { 'grade-scale-chip-active': g.grade === gradeBreakdown.grade }]"
+            :data-tooltip="`≥ ${g.min} / 100`"
+          >
+            {{ g.grade }}
+          </span>
         </span>
       </div>
 
@@ -2164,6 +2186,59 @@ const runDate = computed(() => {
   font-family: var(--vp-font-family-mono);
   font-size: 0.8rem;
   color: var(--vp-c-text-3);
+}
+
+.grade-scale-row {
+  display: inline-flex;
+  gap: 0.3rem;
+  margin-left: auto;
+}
+
+.grade-scale-chip {
+  position: relative;
+  display: inline-block;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: var(--vp-c-bg-mute);
+  color: var(--vp-c-text-3);
+  opacity: 0.4;
+  cursor: default;
+  transition: opacity 0.15s ease;
+}
+
+.grade-scale-chip:hover {
+  opacity: 1;
+}
+
+.grade-scale-chip-active {
+  opacity: 1;
+  outline: 1.5px solid currentColor;
+}
+
+.grade-scale-chip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--vp-c-bg-elv);
+  color: var(--vp-c-text-1);
+  border: 1px solid var(--vp-c-border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0s;
+  z-index: 20;
+}
+
+.grade-scale-chip:hover::after {
+  opacity: 1;
 }
 
 /* Deal breaker chips */
